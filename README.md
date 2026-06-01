@@ -106,6 +106,7 @@ https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions
 - ✅ 简历撰写的时候，AI可以进行润色
 - ✅ AI简历深挖 利用ai 基于单个项目或者经历的长对话对简历进行深度优化
 - ✅ AI模拟面试 针对单一项目或者经历对用户进行面试拷打
+- ✅ 本地登录/注册与基础用户信息管理（纯前端本地存储，详见 [docs/LOGIN_FEATURE.md](docs/LOGIN_FEATURE.md)）
 
 细节功能：
 
