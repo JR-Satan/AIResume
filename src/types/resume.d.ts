@@ -88,4 +88,5 @@ export interface ResumeState {
   currentId: number;
   isFirstVisit: boolean;
   resumeSetting: ResumeSetting;
+  isHistoryMode: boolean;
 }

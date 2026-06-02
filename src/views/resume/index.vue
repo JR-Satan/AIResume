@@ -6,44 +6,63 @@
     <div class="left">
       <div class="btn-group">
         <!-- 预览填充 -->
-        <a-popconfirm title="填充会覆盖当前数据，确定吗？" ok-text="确定" cancel-text="取消" @confirm="resumeStore.autoFillData">
+        <a-popconfirm title="填充会覆盖当前数据，确定吗？" ok-text="确定" cancel-text="取消" @confirm="resumeStore.autoFillData"
+          :disabled="historyOpen">
           <template #icon><question-circle-outlined style="color: red" /></template>
-          <a-button type="primary" ghost>
+          <a-button type="primary" ghost :disabled="historyOpen">
             <eye-outlined />
             预览填充
           </a-button>
         </a-popconfirm>
 
+        <!-- 保存版本 -->
+        <a-popconfirm title="确定要将当前简历保存为一个历史版本吗？" ok-text="保存" cancel-text="取消" @confirm="handleSaveHistory"
+          :disabled="historyOpen">
+          <template #icon><save-outlined style="color: #52c41a" /></template>
+          <a-button :disabled="historyOpen">
+            <save-outlined />
+            保存
+          </a-button>
+        </a-popconfirm>
+
         <!-- 清空数据 -->
-        <a-popconfirm title="确定要清空当前简历数据吗？" ok-text="清空" cancel-text="取消" @confirm="resumeStore.clearData">
+        <a-popconfirm title="确定要清空当前简历数据吗？" ok-text="清空" cancel-text="取消" @confirm="resumeStore.clearData"
+          :disabled="historyOpen">
           <template #icon><warning-outlined style="color: red" /></template>
-          <a-button danger>
+          <a-button danger :disabled="historyOpen">
             <delete-outlined />
             清空数据
           </a-button>
         </a-popconfirm>
 
         <!-- 导出数据 -->
-        <a-button type="default" @click="resumeStore.exportData">
+        <a-button type="default" @click="resumeStore.exportData" :disabled="historyOpen">
           <download-outlined />
           导出JSON
         </a-button>
 
         <!-- 导入按钮 -->
         <a-upload v-model:fileList="fileList" :beforeUpload="handleFileUpload" :showUploadList="false"
-          accept="application/json">
-          <a-button type="dashed">
+          accept="application/json" :disabled="historyOpen">
+          <a-button type="dashed" :disabled="historyOpen">
             <upload-outlined />
             导入JSON
           </a-button>
         </a-upload>
+
+        <!-- 历史版本 -->
+        <a-button :type="historyOpen ? 'primary' : 'default'" @click="toggleHistory">
+          <history-outlined />
+          历史版本
+        </a-button>
       </div>
 
       <resumeEdit />
     </div>
-    <!-- 右侧简历展示组件 -->
+    <!-- 右侧简历展示组件 / 历史版本面板 -->
     <div class="right">
-      <resumePreview />
+      <history-panel v-if="historyOpen" :open="historyOpen" />
+      <resumePreview v-else />
     </div>
   </div>
 </template>
@@ -51,15 +70,45 @@
 <script setup lang="ts">
 import resumeEdit from './components/resumeEdit.vue';
 import resumePreview from './components/resumePreview.vue';
+import historyPanel from './components/historyPanel.vue';
 import { useResumeStore } from "../../store/useResumeStore";
-import { UploadOutlined } from '@ant-design/icons-vue';
+import { UploadOutlined, HistoryOutlined, SaveOutlined } from '@ant-design/icons-vue';
 import { message } from "ant-design-vue";
 import type { UploadProps } from "ant-design-vue";
-import { ref } from 'vue';
+import { ref, onUnmounted } from 'vue';
 const resumeStore = useResumeStore();
 const fileList = ref<UploadProps["fileList"]>([]);
 
-// 处理文件上传
+// ========== 历史版本面板状态 ==========
+const historyOpen = ref(false);
+
+const toggleHistory = () => {
+  const willClose = historyOpen.value;
+  historyOpen.value = !willClose;
+  // 关闭面板时，确保退出历史预览模式
+  if (willClose && resumeStore.isHistoryMode) {
+    resumeStore.exitHistoryPreview();
+  }
+};
+
+// 手动保存历史版本
+const handleSaveHistory = () => {
+  const savedVersion = resumeStore.saveHistorySnapshot();
+  if (savedVersion) {
+    message.success('已保存为历史版本');
+  } else {
+    message.warning('当前状态无法保存历史版本');
+  }
+};
+
+// 组件卸载时，确保退出历史预览模式（防止数据残留）
+onUnmounted(() => {
+  if (resumeStore.isHistoryMode) {
+    resumeStore.exitHistoryPreview();
+  }
+});
+
+// ========== 文件导入 ==========
 const handleFileUpload = (file: File) => {
   if (file.type !== "application/json") {
     message.error("请上传 JSON 文件！");

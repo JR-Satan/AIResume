@@ -9,6 +9,8 @@ import type {
   Project, ResumeState, Skill,
   WorkExperience, ResumeSetting, SectionKey
 } from '../types/resume';
+import { saveHistory } from '../services/archiveService';
+import type { HistoryVersion, ResumeSnapshot } from '../services/archiveService';
 
 export const useResumeStore = defineStore('resume', {
   state: (): ResumeState => {
@@ -42,6 +44,7 @@ export const useResumeStore = defineStore('resume', {
       sectionOrder: normalizeSectionOrder(resumeData.sectionOrder),
       currentId,
       isFirstVisit, // 添加到state中
+      isHistoryMode: false, // 历史预览模式（运行时状态，不持久化）
     };
   },
   actions: {
@@ -94,16 +97,75 @@ export const useResumeStore = defineStore('resume', {
       message.success('数据已清空');
     },
     // 自动填充数据
-    async autoFillData() {
+    async autoFillData(options: { saveHistory?: boolean } = {}) {
       try {
         const response = await fetch('/resumeData.json');
         const data = await response.json();
-        this.$state = { ...data, isFirstVisit: false }; // 保持 isFirstVisit
+        const shouldSaveHistory = options?.saveHistory !== false;
+        if (shouldSaveHistory && !this.isHistoryMode) {
+          this.saveHistorySnapshot();
+        }
+        this.$state = { ...data, isFirstVisit: false, isHistoryMode: false }; // 保持 isFirstVisit，重置历史模式
         this.saveToLocalStorage();
         message.success('数据已自动填充');
       } catch (error) {
         message.error('加载数据失败');
       }
+    },
+
+    // 保存当前数据为历史版本快照
+    saveHistorySnapshot(): HistoryVersion | null {
+      if (this.isHistoryMode) return null;
+
+      const templateId = String(this.resumeSetting?.currentTemplate || resumeTemplate.resumeSetting.currentTemplate);
+      if (!templateId) return null;
+
+      const snapshot: ResumeSnapshot = {
+        personalInfo: JSON.parse(JSON.stringify(this.personalInfo)),
+        education: JSON.parse(JSON.stringify(this.education)),
+        workExperience: JSON.parse(JSON.stringify(this.workExperience)),
+        skills: JSON.parse(JSON.stringify(this.skills)),
+        projects: JSON.parse(JSON.stringify(this.projects)),
+        honors: JSON.parse(JSON.stringify(this.honors)),
+        summary: this.summary,
+        sectionOrder: [...this.sectionOrder],
+        resumeSetting: JSON.parse(JSON.stringify(this.resumeSetting)),
+      };
+
+      return saveHistory(snapshot, templateId);
+    },
+
+    // 进入历史版本预览
+    enterHistoryPreview(snapshot: ResumeSnapshot) {
+      // 先备份当前状态到专用 localStorage key
+      const backup = JSON.stringify(this.$state);
+      localStorage.setItem('resumeData_history_backup', backup);
+
+      // 加载历史快照数据到 store（保留 isHistoryMode 和 isFirstVisit）
+      this.$state = {
+        ...this.$state,
+        ...snapshot,
+        isFirstVisit: false,
+        isHistoryMode: true,
+      };
+    },
+
+    // 退出历史版本预览，恢复原始状态
+    exitHistoryPreview() {
+      const backupStr = localStorage.getItem('resumeData_history_backup');
+      if (backupStr) {
+        try {
+          const backupData = JSON.parse(backupStr);
+          this.$state = { ...backupData, isHistoryMode: false };
+          this.initializeCurrentId();
+        } catch (e) {
+          console.error('恢复历史版本备份失败:', e);
+          this.isHistoryMode = false;
+        }
+      } else {
+        this.isHistoryMode = false;
+      }
+      localStorage.removeItem('resumeData_history_backup');
     },
     // 保存到 localStorage
     saveToLocalStorage() {
@@ -264,7 +326,7 @@ export const useResumeStore = defineStore('resume', {
     // 初始化检查
     async initCheck() {
       if (this.isFirstVisit) {
-        await this.autoFillData();
+        await this.autoFillData({ saveHistory: false });
       }
     }
   }

@@ -1,54 +1,108 @@
-// 简历存档服务层（预留接口）
-//
-// 目标：将来支持「每个用户拥有自己独立的多版本简历存档」。
-// 本文件目前只定义按用户隔离的存储 key 约定与接口签名，
-// 具体的存档读写 UI / 逻辑留待后续实现 —— 届时上层无需改动调用方式，
-// 只需在此填充实现，或将内部替换为后端请求。
+// 简历历史版本存档服务
+// 使用 localStorage 按用户 + 模板隔离存储历史版本数据
 
-// 按用户隔离的存档存储 key：登录用户用其 id，未登录统一用 guest
-const ARCHIVE_PREFIX = 'ai_resume_archive_';
+import type { ResumeState, SectionKey } from '../types/resume';
 
-export const getArchiveKey = (userId?: string | null): string =>
-  `${ARCHIVE_PREFIX}${userId || 'guest'}`;
+// ========== 类型定义 ==========
 
-// 单个存档（版本）的基础结构
-export interface ResumeArchive {
+/** 简历内容快照（不含元数据字段） */
+export interface ResumeSnapshot {
+  personalInfo: ResumeState['personalInfo'];
+  education: ResumeState['education'];
+  workExperience: ResumeState['workExperience'];
+  skills: ResumeState['skills'];
+  projects: ResumeState['projects'];
+  honors: ResumeState['honors'];
+  summary: ResumeState['summary'];
+  sectionOrder: SectionKey[];
+  resumeSetting: ResumeState['resumeSetting'];
+}
+
+/** 单个历史版本 */
+export interface HistoryVersion {
   id: string;
-  name: string; // 版本名称
-  updatedAt: number;
-  data: unknown; // 该版本的完整简历数据
+  timestamp: number;
+  snapshot: ResumeSnapshot;
 }
 
-// 列出某用户的全部存档
-export async function listArchives(userId?: string | null): Promise<ResumeArchive[]> {
-  // TODO: 后续实现 —— 从 getArchiveKey(userId) 读取存档列表
-  void getArchiveKey(userId);
-  return [];
+// ========== 内部工具 ==========
+
+const HISTORY_PREFIX = 'ai_resume_history_';
+const MAX_VERSIONS_PER_TEMPLATE = 50;
+
+function getHistoryKey(templateId: string, userId?: string | null): string {
+  return `${HISTORY_PREFIX}${userId || 'guest'}_${templateId}`;
 }
 
-// 保存 / 新建一个存档版本
-export async function saveArchive(
-  _userId: string | null,
-  _archive: Omit<ResumeArchive, 'id' | 'updatedAt'> & { id?: string }
-): Promise<ResumeArchive | null> {
-  // TODO: 后续实现 —— 写入对应用户命名空间的存档
-  return null;
+function generateId(): string {
+  return `${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 }
 
-// 读取指定存档版本
-export async function loadArchive(
-  _userId: string | null,
-  _archiveId: string
-): Promise<ResumeArchive | null> {
-  // TODO: 后续实现 —— 返回指定版本数据
-  return null;
+// ========== 公共 API ==========
+
+/** 获取某模板的全部历史版本（按时间倒序，最新在前） */
+export function listHistory(
+  templateId: string,
+  userId?: string | null
+): HistoryVersion[] {
+  const key = getHistoryKey(templateId, userId);
+  const raw = localStorage.getItem(key);
+  if (!raw) return [];
+  try {
+    const list: HistoryVersion[] = JSON.parse(raw);
+    return list.sort((a, b) => b.timestamp - a.timestamp);
+  } catch {
+    return [];
+  }
 }
 
-// 删除指定存档版本
-export async function deleteArchive(
-  _userId: string | null,
-  _archiveId: string
-): Promise<boolean> {
-  // TODO: 后续实现
-  return false;
+/** 保存一条新的历史版本 */
+export function saveHistory(
+  snapshot: ResumeSnapshot,
+  templateId: string,
+  userId?: string | null
+): HistoryVersion {
+  const key = getHistoryKey(templateId, userId);
+  const list = listHistory(templateId, userId);
+
+  const version: HistoryVersion = {
+    id: generateId(),
+    timestamp: Date.now(),
+    snapshot,
+  };
+
+  list.unshift(version);
+
+  // 超过上限时删除最旧的记录
+  if (list.length > MAX_VERSIONS_PER_TEMPLATE) {
+    list.splice(MAX_VERSIONS_PER_TEMPLATE);
+  }
+
+  localStorage.setItem(key, JSON.stringify(list));
+  return version;
+}
+
+/** 删除指定的历史版本 */
+export function deleteHistory(
+  versionId: string,
+  templateId: string,
+  userId?: string | null
+): boolean {
+  const key = getHistoryKey(templateId, userId);
+  const list = listHistory(templateId, userId);
+  const index = list.findIndex(v => v.id === versionId);
+  if (index === -1) return false;
+
+  list.splice(index, 1);
+  localStorage.setItem(key, JSON.stringify(list));
+  return true;
+}
+
+/** 清空某模板的全部历史版本 */
+export function clearHistory(
+  templateId: string,
+  userId?: string | null
+): void {
+  const key = getHistoryKey(templateId, userId);
+  localStorage.removeItem(key);
 }
