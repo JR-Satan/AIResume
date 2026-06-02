@@ -20,8 +20,8 @@ pinia.use(piniaPersist) // 启用持久化功能
 
 
 const app = createApp(App);
-app.use(router);
 app.use(pinia);
+app.use(router);
 app.directive('lazy', lazyLoad);
 app.use(Antd);
 app.mount('#app');

@@ -28,6 +28,58 @@ const writeUsers = (users: StoredUser[]) => {
   localStorage.setItem(USERS_KEY, JSON.stringify(users));
 };
 
+const isStoredUser = (value: unknown): value is StoredUser => {
+  const user = value as Partial<StoredUser>;
+  return (
+    typeof user?.id === 'string' &&
+    typeof user.username === 'string' &&
+    typeof user.nickname === 'string' &&
+    typeof user.avatar === 'string' &&
+    typeof user.createdAt === 'number' &&
+    typeof user.salt === 'string' &&
+    typeof user.passwordHash === 'string'
+  );
+};
+
+let usersInitPromise: Promise<void> | null = null;
+
+// 从 public/users.json 合并初始账号。运行时新增/改密仍保存到 localStorage 的 JSON 用户表。
+export const ensureUsersInitialized = async (): Promise<void> => {
+  if (usersInitPromise) return usersInitPromise;
+
+  usersInitPromise = (async () => {
+    try {
+      const response = await fetch('/users.json');
+      if (!response.ok) return;
+
+      const payload = await response.json();
+      const seededUsers = Array.isArray(payload) ? payload : payload?.users;
+      if (!Array.isArray(seededUsers)) return;
+
+      const validSeededUsers = seededUsers.filter(isStoredUser);
+      if (validSeededUsers.length === 0) return;
+
+      const users = readUsers();
+      const existingUsernames = new Set(users.map((user) => user.username));
+      const existingIds = new Set(users.map((user) => user.id));
+      const merged = [...users];
+
+      for (const seededUser of validSeededUsers) {
+        if (existingUsernames.has(seededUser.username) || existingIds.has(seededUser.id)) continue;
+        merged.push(seededUser);
+      }
+
+      if (merged.length !== users.length) {
+        writeUsers(merged);
+      }
+    } catch (e) {
+      console.error('初始化用户 JSON 失败:', e);
+    }
+  })();
+
+  return usersInitPromise;
+};
+
 // 生成随机盐值
 const genSalt = () => CryptoJS.lib.WordArray.random(16).toString();
 

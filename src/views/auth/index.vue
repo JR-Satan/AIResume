@@ -46,11 +46,12 @@
 
 <script setup lang="ts">
 import { reactive, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { message } from 'ant-design-vue';
 import { useUserStore } from '../../store/useUserStore';
 
 const router = useRouter();
+const route = useRoute();
 const userStore = useUserStore();
 
 const activeTab = ref<'login' | 'register'>('login');
@@ -59,13 +60,18 @@ const loading = ref(false);
 const loginForm = reactive({ username: '', password: '' });
 const registerForm = reactive({ username: '', nickname: '', password: '', confirm: '' });
 
+const getRedirectPath = () => {
+  const redirect = route.query.redirect;
+  return typeof redirect === 'string' && redirect !== '/auth' ? redirect : '/';
+};
+
 const handleLogin = async () => {
   loading.value = true;
   try {
     const res = await userStore.login(loginForm.username, loginForm.password);
     if (res.success) {
       message.success(res.message);
-      router.push('/');
+      router.replace(getRedirectPath());
     } else {
       message.error(res.message);
     }
@@ -86,7 +92,7 @@ const handleRegister = async () => {
     });
     if (res.success) {
       message.success(res.message);
-      router.push('/');
+      router.replace(getRedirectPath());
     } else {
       message.error(res.message);
     }

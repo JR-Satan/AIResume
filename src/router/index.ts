@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
+import { useUserStore } from '../store/useUserStore';
 
 
 // 定义路由
@@ -37,7 +38,7 @@ const routes: Array<RouteRecordRaw> = [
     path: '/auth',
     name: 'auth',
     component: () => import('@/views/auth/index.vue'),
-    meta: { title: 'AI简历 - 登录' }
+    meta: { title: 'AI简历 - 登录', public: true }
   },
   {
     path: '/profile',
@@ -60,4 +61,26 @@ const router = createRouter({
 router.afterEach((to) => {
   document.title = (to.meta?.title as string) || '默认标题';
 });
+
+router.beforeEach(async (to) => {
+  const userStore = useUserStore();
+  await userStore.initAuth();
+
+  const isPublicRoute = to.meta.public === true;
+  const redirect = typeof to.query.redirect === 'string' ? to.query.redirect : '/';
+
+  if (userStore.isLoggedIn && to.name === 'auth') {
+    return redirect === '/auth' ? '/' : redirect;
+  }
+
+  if (!isPublicRoute && !userStore.isLoggedIn) {
+    return {
+      name: 'auth',
+      query: { redirect: to.fullPath },
+    };
+  }
+
+  return true;
+});
+
 export default router;

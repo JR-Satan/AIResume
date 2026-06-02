@@ -8,13 +8,23 @@ export const useUserStore = defineStore(
   () => {
     // 当前登录用户（未登录为 null）
     const currentUser = ref<User | null>(null);
+    const authReady = ref(false);
     // 是否已登录
     const isLoggedIn = computed(() => currentUser.value !== null);
 
+    const initAuth = async (force = false) => {
+      if (authReady.value && !force) return;
+      await authService.ensureUsersInitialized();
+      currentUser.value = await authService.getCurrentUser();
+      authReady.value = true;
+    };
+
     // 登录
     const login = async (username: string, password: string): Promise<AuthResult> => {
+      await authService.ensureUsersInitialized();
       const res = await authService.login(username, password);
       if (res.success && res.user) currentUser.value = res.user;
+      authReady.value = true;
       return res;
     };
 
@@ -24,8 +34,10 @@ export const useUserStore = defineStore(
       password: string,
       profile?: Partial<UserProfile>
     ): Promise<AuthResult> => {
+      await authService.ensureUsersInitialized();
       const res = await authService.register(username, password, profile);
       if (res.success && res.user) currentUser.value = res.user;
+      authReady.value = true;
       return res;
     };
 
@@ -33,6 +45,7 @@ export const useUserStore = defineStore(
     const logout = async () => {
       await authService.logout();
       currentUser.value = null;
+      authReady.value = true;
     };
 
     // 更新基础资料
@@ -54,7 +67,9 @@ export const useUserStore = defineStore(
 
     return {
       currentUser,
+      authReady,
       isLoggedIn,
+      initAuth,
       login,
       register,
       logout,

@@ -4,9 +4,14 @@ import ThemeSwitcher from './components/ThemeSwitcher/index.vue';
 import NarrowScreen from './components/narrow/index.vue';
 import { useResumeStore } from './store/useResumeStore';
 import { useSettingsStore } from './store/useSettingsStore';
-import { onMounted, ref, onBeforeMount } from 'vue';
+import { computed, onMounted, ref, onBeforeMount, watch } from 'vue';
+import { useRoute } from 'vue-router';
 const settingsStore = useSettingsStore();
 const showNarrowScreen = ref(false);
+const route = useRoute();
+const isAuthPage = computed(() => route.name === 'auth');
+const shouldInitializeResume = computed(() => route.name !== undefined && route.name !== 'auth');
+const resumeStore = useResumeStore();
 
 
 // 检查屏幕宽度
@@ -20,17 +25,25 @@ onBeforeMount(() => {
 });
 
 // 页面加载时初始化
-onMounted(async () => {
-  const resumeStore = useResumeStore();
-  await resumeStore.initCheck();
+onMounted(() => {
   settingsStore.initTheme();
 });
+
+watch(
+  shouldInitializeResume,
+  async (shouldInit) => {
+    if (shouldInit) {
+      await resumeStore.initCheck();
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <template>
   <narrow-screen v-if="showNarrowScreen" />
   <template v-else>
-    <Header />
+    <Header v-if="!isAuthPage" />
     <a-config-provider :theme="{
       token: {
         colorPrimary: settingsStore.theme,
@@ -42,7 +55,7 @@ onMounted(async () => {
         </keep-alive>
       </router-view>
     </a-config-provider>
-    <ThemeSwitcher />
+    <ThemeSwitcher v-if="!isAuthPage" />
   </template>
 </template>
 

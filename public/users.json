@@ -1,0 +1,13 @@
+{
+  "users": [
+    {
+      "id": "u_default_admin",
+      "username": "admin",
+      "nickname": "管理员",
+      "avatar": "",
+      "createdAt": 1735689600000,
+      "salt": "airesume_default_salt_v1",
+      "passwordHash": "8ae007b016c60e5795271d24d187e11322b0e4229801d74e25273329ef94fe92"
+    }
+  ]
+}

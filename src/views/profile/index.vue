@@ -135,7 +135,7 @@ const handleChangePassword = async () => {
 const handleLogout = async () => {
   await userStore.logout();
   message.success('已退出登录');
-  router.push('/');
+  router.replace('/auth');
 };
 </script>
 
