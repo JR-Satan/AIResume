@@ -34,6 +34,18 @@ const routes: Array<RouteRecordRaw> = [
     meta: { title: 'AI简历 - AI深度交流', keepAlive: true }
   },
   {
+    path: '/auth',
+    name: 'auth',
+    component: () => import('@/views/auth/index.vue'),
+    meta: { title: 'AI简历 - 登录' }
+  },
+  {
+    path: '/profile',
+    name: 'profile',
+    component: () => import('@/views/profile/index.vue'),
+    meta: { title: 'AI简历 - 个人中心' }
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     component: () => import('../views/404.vue')
