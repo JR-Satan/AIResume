@@ -37,10 +37,6 @@
           <span class="label">政治面貌：</span>
           <span class="value">{{ resume.personalInfo.politicalStatus }}</span>
         </div>
-        <div class="detail-row" v-if="resume.personalInfo.website">
-          <span class="label">网站：</span>
-          <a :href="resume.personalInfo.website" target="_blank" class="value">{{ resume.personalInfo.website }}</a>
-        </div>
       </div>
       <!-- 头像部分，仅在有头像时显示 -->
       <div class="profile-image" v-if="resume.personalInfo.avatar">

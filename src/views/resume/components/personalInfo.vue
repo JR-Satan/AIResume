@@ -46,11 +46,7 @@
 
 
         <a-row gutter="24">
-          <a-col :span="12">
-            <!-- 个人网站 -->
-            <a-input v-model:value="personalInfo.website" placeholder="请输入个人网站" addonBefore="个人网站" />
-          </a-col>
-          <a-col :span="12">
+          <a-col :span="24">
             <!-- 应聘岗位 -->
             <a-input v-model:value="personalInfo.applicationPosition" placeholder="应聘岗位" addonBefore="岗位" />
           </a-col>

@@ -40,10 +40,6 @@
           <i class="fas fa-graduation-cap"></i>
           <span>专业：{{ resume.personalInfo.major }}</span>
         </div>
-        <div class="contact-item" v-if="resume.personalInfo.website">
-          <i class="fas fa-globe"></i>
-          <span>网站：<a :href="resume.personalInfo.website" target="_blank">{{ resume.personalInfo.website }}</a></span>
-        </div>
       </div>
 
       <div class="side-section" v-if="resume.education.length" :style="sectionStyle('education')">
@@ -125,8 +121,8 @@ const resume = computed(() => resumeStore.$state);
 
 // 判断是否有联系方式信息
 const hasContactInfo = computed(() => {
-  const { phone, email, website, gender, age, politicalStatus, university, major } = resume.value.personalInfo;
-  return phone || email || website || gender || age || politicalStatus || university || major;
+  const { phone, email, gender, age, politicalStatus, university, major } = resume.value.personalInfo;
+  return phone || email || gender || age || politicalStatus || university || major;
 });
 
 // 合并所有样式到一个计算属性

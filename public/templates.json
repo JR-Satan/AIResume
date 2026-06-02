@@ -5,7 +5,7 @@
     "description": "简约而不简单的单栏简历模板。",
     "folderPath": "templateA",
     "thumbnail": "preview.jpg",
-    "author": "吃猫的鱼"
+    "author": "AI"
   },
   {
     "id": "202502",
@@ -37,6 +37,6 @@
     "description": "供开发者参考开发的模板-建议开发者开发的时候复制模板使用。建议把本模板放到最后",
     "folderPath": "dev",
     "thumbnail": "preview.jpg",
-    "author": "吃猫的鱼"
+    "author": "AI"
   }
 ]

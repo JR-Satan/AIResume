@@ -26,10 +26,6 @@
           <div class="info-item" v-if="resume.personalInfo.major">
             <span class="label">专业：</span>{{ resume.personalInfo.major }}
           </div>
-          <div class="info-item" v-if="resume.personalInfo.website">
-            <span class="label">网站：</span>
-            <a :href="resume.personalInfo.website" target="_blank">{{ resume.personalInfo.website }}</a>
-          </div>
         </div>
       </div>
       <div class="avatar" v-if="resume.personalInfo.avatar">

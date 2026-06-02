@@ -20,10 +20,6 @@
             <a v-if="resume.personalInfo.email" class="contact-item">
               <i class="fas fa-envelope"></i>{{ resume.personalInfo.email }}
             </a>
-            <a v-if="resume.personalInfo.website" :href="resume.personalInfo.website" target="_blank"
-              class="contact-item">
-              <i class="fas fa-globe"></i>{{ resume.personalInfo.website }}
-            </a>
           </div>
           <div v-if="resume.personalInfo.applicationPosition" class="job-target">
             意向职位: {{ resume.personalInfo.applicationPosition }}
