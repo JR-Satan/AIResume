@@ -41,6 +41,24 @@ export const useUserStore = defineStore(
       return res;
     };
 
+    // 扫码登录（按设备版本标识，自动注册或登录）
+    const scanLogin = async (versionKey: string): Promise<AuthResult> => {
+      await authService.ensureUsersInitialized();
+      const res = await authService.scanLogin(versionKey);
+      if (res.success && res.user) currentUser.value = res.user;
+      authReady.value = true;
+      return res;
+    };
+
+    // 采纳手机回传的账号并在本机登录（电脑端扫码登录）
+    const adoptUser = async (user: User): Promise<AuthResult> => {
+      await authService.ensureUsersInitialized();
+      const res = await authService.adoptUser(user);
+      if (res.success && res.user) currentUser.value = res.user;
+      authReady.value = true;
+      return res;
+    };
+
     // 退出登录
     const logout = async () => {
       await authService.logout();
@@ -72,6 +90,8 @@ export const useUserStore = defineStore(
       initAuth,
       login,
       register,
+      scanLogin,
+      adoptUser,
       logout,
       updateProfile,
       changePassword,

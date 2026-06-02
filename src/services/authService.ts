@@ -141,6 +141,76 @@ export async function login(username: string, password: string): Promise<AuthRes
   return { success: true, message: '登录成功', user: toPublicUser(found) };
 }
 
+// 扫码登录（模拟）
+//
+// 以「设备版本标识」作为账号用户名，与账密登录共用同一套用户存储：
+//  - 该版本已存在账号 → 直接登录；
+//  - 首次出现的版本 → 自动注册一个账号（随机密码哈希，无明文密码），并登录。
+// 因此「一个版本 ↔ 唯一一个账号」，且数据与账密登录完全同源。
+export async function scanLogin(versionKey: string): Promise<AuthResult> {
+  await delay();
+  const key = versionKey.trim();
+  if (!key) {
+    return { success: false, message: '无法识别设备信息' };
+  }
+  const users = readUsers();
+  const found = users.find((u) => u.username === key);
+  if (found) {
+    localStorage.setItem(SESSION_KEY, found.id);
+    return { success: true, message: '扫码登录成功', user: toPublicUser(found) };
+  }
+  // 首次扫码：自动注册。密码随机生成且不回传，仅用于占位哈希。
+  const salt = genSalt();
+  const randomPassword = CryptoJS.lib.WordArray.random(16).toString();
+  const stored: StoredUser = {
+    id: genId(),
+    username: key,
+    nickname: key,
+    avatar: '',
+    createdAt: Date.now(),
+    salt,
+    passwordHash: hashPassword(randomPassword, salt),
+  };
+  users.push(stored);
+  writeUsers(users);
+  localStorage.setItem(SESSION_KEY, stored.id);
+  return { success: true, message: '已为该设备创建账号并登录', user: toPublicUser(stored) };
+}
+
+// 采纳手机回传的账号并在本机登录（电脑端扫码登录的最后一步）
+//
+// 手机端的账号建在手机本地，电脑本地用户表里可能没有它。
+// 这里按 username 在本机查找：有则登录该账号，无则把回传的公开信息
+// 落到本机用户表（密码字段留占位，因为本机不掌握其密码）后登录。
+export async function adoptUser(user: User): Promise<AuthResult> {
+  await delay();
+  if (!user || !user.username) {
+    return { success: false, message: '账号信息无效' };
+  }
+  const users = readUsers();
+  const found = users.find((u) => u.username === user.username);
+  if (found) {
+    localStorage.setItem(SESSION_KEY, found.id);
+    return { success: true, message: '扫码登录成功', user: toPublicUser(found) };
+  }
+  // 本机不存在该账号：落库（密码占位，扫码登录不依赖本机密码）。
+  const salt = genSalt();
+  const placeholder = CryptoJS.lib.WordArray.random(16).toString();
+  const stored: StoredUser = {
+    id: user.id || genId(),
+    username: user.username,
+    nickname: user.nickname || user.username,
+    avatar: user.avatar || '',
+    createdAt: user.createdAt || Date.now(),
+    salt,
+    passwordHash: hashPassword(placeholder, salt),
+  };
+  users.push(stored);
+  writeUsers(users);
+  localStorage.setItem(SESSION_KEY, stored.id);
+  return { success: true, message: '扫码登录成功', user: toPublicUser(stored) };
+}
+
 // 退出登录
 export async function logout(): Promise<void> {
   await delay();
