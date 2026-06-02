@@ -40,13 +40,6 @@
       </div>
 
       <resumeEdit />
-      <!-- 底部展示github图标 -->
-      <div class="github-link">
-        <a href="https://github.com/weidong-repo/AIResume" target="_blank">
-          <span class="github-star">如果您喜欢这个项目，请给个 Star 吧！</span>
-          <img src="https://img.shields.io/github/stars/weidong-repo/AIResume?style=social" alt="GitHub stars">
-        </a>
-      </div>
     </div>
     <!-- 右侧简历展示组件 -->
     <div class="right">
@@ -122,22 +115,4 @@ const handleFileUpload = (file: File) => {
   overflow-y: auto;
 }
 
-.github-link {
-  margin-top: 5px;
-  text-align: center;
-}
-
-.github-link a {
-  text-decoration: none;
-}
-
-.github-star {
-  margin-right: 5px;
-  color: var(--text-color);
-  font-size: 12px;
-  /* 去除a标签默认样式 */
-
-  cursor: pointer;
-
-}
 </style>
