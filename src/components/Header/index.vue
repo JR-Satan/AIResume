@@ -10,17 +10,6 @@
             <SvgIcon iconName="templateStore" />
             模板市场
           </router-link></li>
-        <li ref="setting"><router-link to="/aiDeep">
-            <SvgIcon iconName="ai" />
-            AI深度交流
-          </router-link></li>
-        <li ref="setting"><router-link to="/setting">
-            <SvgIcon iconName="setting" />
-            网站配置
-          </router-link></li>
-
-        <li><router-link to="/resumeDesign">简历模板设计</router-link></li>
-
         <!-- 登录入口（最右侧 + 圆形头像标记）：未登录跳登录页，已登录跳个人中心 -->
         <li class="user-entry">
           <router-link :to="userStore.isLoggedIn ? '/profile' : '/auth'">
@@ -35,56 +24,19 @@
       </ul>
     </nav>
   </header>
-
-  <!-- 漫游式引导 -->
-  <a-tour v-model:open="tourOpen" :steps="tourSteps" :mask="true" :next-button-props="{ children: '下一步' }"
-    :prev-button-props="{ children: '上一步' }" :finish-button-props="{ children: '完成' }" @finish="handleFinish"
-    @close="handleFinish" />
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed } from "vue";
 import SvgIcon from '../SvgIcon.vue';
-import { useResumeStore } from "../../store/useResumeStore";
 import { useUserStore } from "../../store/useUserStore";
-import type { TourProps } from 'ant-design-vue';
 
-const store = useResumeStore();
 const userStore = useUserStore();
-const setting = ref(null);
-const templateStore = ref(null);
-const tourOpen = ref(false); // 控制引导是否打开
 
 // 头像占位文字：已登录取昵称首字，未登录显示默认图标占位
 const avatarText = computed(() =>
   userStore.isLoggedIn ? (userStore.currentUser?.nickname || 'U').charAt(0).toUpperCase() : '👤'
 );
-
-const tourSteps: TourProps['steps'] = [
-  {
-    title: "网站配置",
-    description: "请先进入网站配置，完善基本信息（否则无法使用大模型润色！）",
-    target: () => setting.value,
-  },
-  {
-    title: "选择模板",
-    description: "然后进入模板市场，挑选适合你的简历模板。",
-    target: () => templateStore.value,
-  }
-];
-
-
-
-// 引导完成时的回调
-const handleFinish = () => {
-  tourOpen.value = false;
-};
-
-onMounted(() => {
-  if (store.isFirstVisit) {
-    tourOpen.value = true; // 开始引导
-  }
-});
 </script>
 
 <style scoped>
