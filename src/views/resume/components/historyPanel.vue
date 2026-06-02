@@ -92,7 +92,8 @@ import {
 } from '@ant-design/icons-vue';
 import { Modal, message } from 'ant-design-vue';
 import { useResumeStore } from '../../../store/useResumeStore';
-import { listHistory, deleteHistory } from '../../../services/archiveService';
+import { useUserStore } from '../../../store/useUserStore';
+import { listHistory, deleteHistory, migrateHistoryOwner } from '../../../services/archiveService';
 import type { HistoryVersion } from '../../../services/archiveService';
 import { generateColorShades } from '../../../utils/colorUtils';
 
@@ -103,21 +104,27 @@ const props = defineProps<{
 
 // ========== Store ==========
 const resumeStore = useResumeStore();
+const userStore = useUserStore();
 
 // ========== 版本列表 ==========
 const historyList = ref<HistoryVersion[]>([]);
 const previewingVersion = ref<HistoryVersion | null>(null);
 
 const currentTemplateId = computed(() => resumeStore.resumeSetting.currentTemplate as string);
+const currentUsername = computed(() => userStore.currentUser?.username || null);
+const currentUserId = computed(() => userStore.currentUser?.id || null);
 
 // 加载历史版本列表
 const loadHistoryList = () => {
   const templateId = currentTemplateId.value;
-  if (templateId) {
-    historyList.value = listHistory(templateId);
-  } else {
+  const username = currentUsername.value?.trim();
+  if (!templateId || !username) {
     historyList.value = [];
+    return;
   }
+
+  migrateHistoryOwner(templateId, currentUserId.value, username);
+  historyList.value = listHistory(templateId, username);
 };
 
 // 监听面板打开状态
@@ -139,6 +146,12 @@ watch(
 );
 
 watch(currentTemplateId, () => {
+  if (props.open && !previewingVersion.value) {
+    loadHistoryList();
+  }
+});
+
+watch(currentUsername, () => {
   if (props.open && !previewingVersion.value) {
     loadHistoryList();
   }
@@ -209,7 +222,7 @@ const confirmDelete = (version: HistoryVersion) => {
     okType: 'danger',
     cancelText: '取消',
     onOk: () => {
-      const success = deleteHistory(version.id, currentTemplateId.value);
+      const success = deleteHistory(version.id, currentTemplateId.value, currentUsername.value);
       if (success) {
         message.success('版本已删除');
         loadHistoryList();

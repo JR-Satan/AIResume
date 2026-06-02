@@ -6,7 +6,7 @@
     <div class="left">
       <div class="btn-group">
         <!-- 预览填充 -->
-        <a-popconfirm title="填充会覆盖当前数据，确定吗？" ok-text="确定" cancel-text="取消" @confirm="resumeStore.autoFillData"
+        <a-popconfirm title="填充会覆盖当前数据，确定吗？" ok-text="确定" cancel-text="取消" @confirm="handleAutoFill"
           :disabled="historyOpen">
           <template #icon><question-circle-outlined style="color: red" /></template>
           <a-button type="primary" ghost :disabled="historyOpen">
@@ -89,6 +89,10 @@ const toggleHistory = () => {
   if (willClose && resumeStore.isHistoryMode) {
     resumeStore.exitHistoryPreview();
   }
+};
+
+const handleAutoFill = () => {
+  resumeStore.autoFillData();
 };
 
 // 手动保存历史版本

@@ -3,6 +3,7 @@ import { defineStore } from 'pinia';
 import { resumeTemplate } from '../data/resumeDataTemplate.ts';
 import { normalizeSectionOrder } from '../constants/sectionOrder';
 import { message } from 'ant-design-vue';
+import { useUserStore } from './useUserStore';
 // 定义类型
 import type {
   Education, Honor, PersonalInfo,
@@ -11,6 +12,14 @@ import type {
 } from '../types/resume';
 import { saveHistory } from '../services/archiveService';
 import type { HistoryVersion, ResumeSnapshot } from '../services/archiveService';
+
+const resolveHistoryUsername = (username?: string | null): string | null => {
+  const normalizedUsername = username?.trim();
+  if (normalizedUsername) return normalizedUsername;
+
+  const userStore = useUserStore();
+  return userStore.currentUser?.username?.trim() || null;
+};
 
 export const useResumeStore = defineStore('resume', {
   state: (): ResumeState => {
@@ -97,13 +106,13 @@ export const useResumeStore = defineStore('resume', {
       message.success('数据已清空');
     },
     // 自动填充数据
-    async autoFillData(options: { saveHistory?: boolean } = {}) {
+    async autoFillData(options: { saveHistory?: boolean; username?: string | null } = {}) {
       try {
         const response = await fetch('/resumeData.json');
         const data = await response.json();
         const shouldSaveHistory = options?.saveHistory !== false;
         if (shouldSaveHistory && !this.isHistoryMode) {
-          this.saveHistorySnapshot();
+          this.saveHistorySnapshot(options.username);
         }
         this.$state = { ...data, isFirstVisit: false, isHistoryMode: false }; // 保持 isFirstVisit，重置历史模式
         this.saveToLocalStorage();
@@ -114,8 +123,14 @@ export const useResumeStore = defineStore('resume', {
     },
 
     // 保存当前数据为历史版本快照
-    saveHistorySnapshot(): HistoryVersion | null {
+    saveHistorySnapshot(username?: string | null): HistoryVersion | null {
       if (this.isHistoryMode) return null;
+
+      const historyUsername = resolveHistoryUsername(username);
+      if (!historyUsername) {
+        console.warn('未获取到当前登录用户，历史版本未保存');
+        return null;
+      }
 
       const templateId = String(this.resumeSetting?.currentTemplate || resumeTemplate.resumeSetting.currentTemplate);
       if (!templateId) return null;
@@ -132,7 +147,7 @@ export const useResumeStore = defineStore('resume', {
         resumeSetting: JSON.parse(JSON.stringify(this.resumeSetting)),
       };
 
-      return saveHistory(snapshot, templateId);
+      return saveHistory(snapshot, templateId, historyUsername);
     },
 
     // 进入历史版本预览

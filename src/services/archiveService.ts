@@ -30,8 +30,8 @@ export interface HistoryVersion {
 const HISTORY_PREFIX = 'ai_resume_history_';
 const MAX_VERSIONS_PER_TEMPLATE = 50;
 
-function getHistoryKey(templateId: string, userId?: string | null): string {
-  return `${HISTORY_PREFIX}${userId || 'guest'}_${templateId}`;
+function getHistoryKey(templateId: string, username?: string | null): string {
+  return `${HISTORY_PREFIX}${username?.trim() || 'guest'}_${templateId}`;
 }
 
 function generateId(): string {
@@ -43,9 +43,9 @@ function generateId(): string {
 /** 获取某模板的全部历史版本（按时间倒序，最新在前） */
 export function listHistory(
   templateId: string,
-  userId?: string | null
+  username?: string | null
 ): HistoryVersion[] {
-  const key = getHistoryKey(templateId, userId);
+  const key = getHistoryKey(templateId, username);
   const raw = localStorage.getItem(key);
   if (!raw) return [];
   try {
@@ -60,10 +60,10 @@ export function listHistory(
 export function saveHistory(
   snapshot: ResumeSnapshot,
   templateId: string,
-  userId?: string | null
+  username?: string | null
 ): HistoryVersion {
-  const key = getHistoryKey(templateId, userId);
-  const list = listHistory(templateId, userId);
+  const key = getHistoryKey(templateId, username);
+  const list = listHistory(templateId, username);
 
   const version: HistoryVersion = {
     id: generateId(),
@@ -86,10 +86,10 @@ export function saveHistory(
 export function deleteHistory(
   versionId: string,
   templateId: string,
-  userId?: string | null
+  username?: string | null
 ): boolean {
-  const key = getHistoryKey(templateId, userId);
-  const list = listHistory(templateId, userId);
+  const key = getHistoryKey(templateId, username);
+  const list = listHistory(templateId, username);
   const index = list.findIndex(v => v.id === versionId);
   if (index === -1) return false;
 
@@ -101,8 +101,38 @@ export function deleteHistory(
 /** 清空某模板的全部历史版本 */
 export function clearHistory(
   templateId: string,
-  userId?: string | null
+  username?: string | null
 ): void {
-  const key = getHistoryKey(templateId, userId);
+  const key = getHistoryKey(templateId, username);
   localStorage.removeItem(key);
+}
+
+/** 将同一用户旧 owner key 下的历史版本迁移到新 owner key 下 */
+export function migrateHistoryOwner(
+  templateId: string,
+  fromOwner?: string | null,
+  toOwner?: string | null
+): number {
+  const normalizedFrom = fromOwner?.trim();
+  const normalizedTo = toOwner?.trim();
+  if (!normalizedFrom || !normalizedTo || normalizedFrom === normalizedTo) return 0;
+
+  const fromKey = getHistoryKey(templateId, normalizedFrom);
+  const toKey = getHistoryKey(templateId, normalizedTo);
+  const fromList = listHistory(templateId, normalizedFrom);
+  if (fromList.length === 0) return 0;
+
+  const toList = listHistory(templateId, normalizedTo);
+  const mergedMap = new Map<string, HistoryVersion>();
+  for (const version of [...toList, ...fromList]) {
+    mergedMap.set(version.id, version);
+  }
+
+  const mergedList = Array.from(mergedMap.values())
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, MAX_VERSIONS_PER_TEMPLATE);
+
+  localStorage.setItem(toKey, JSON.stringify(mergedList));
+  localStorage.removeItem(fromKey);
+  return fromList.length;
 }
