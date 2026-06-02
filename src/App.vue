@@ -7,16 +7,18 @@ import { useSettingsStore } from './store/useSettingsStore';
 import { computed, onMounted, ref, onBeforeMount, watch } from 'vue';
 import { useRoute } from 'vue-router';
 const settingsStore = useSettingsStore();
-const showNarrowScreen = ref(false);
+const isNarrow = ref(false);
 const route = useRoute();
 const isAuthPage = computed(() => route.name === 'auth');
+// 是否展示「暂不支持移动端」遮罩：窄屏且非登录页（登录页需放行手机扫码登录）
+const showNarrowScreen = computed(() => isNarrow.value && !isAuthPage.value);
 const shouldInitializeResume = computed(() => route.name !== undefined && route.name !== 'auth');
 const resumeStore = useResumeStore();
 
 
 // 检查屏幕宽度
 const checkScreenWidth = () => {
-  showNarrowScreen.value = window.innerWidth < 768;
+  isNarrow.value = window.innerWidth < 768;
 };
 
 onBeforeMount(() => {

@@ -68,8 +68,11 @@ router.beforeEach(async (to) => {
 
   const isPublicRoute = to.meta.public === true;
   const redirect = typeof to.query.redirect === 'string' ? to.query.redirect : '/';
+  // 带 scan 会话参数的 /auth 访问是「手机扫码回传」流程：
+  // 即使本机已登录，也要停在扫码页把账号回传给电脑，不能按已登录踢回首页。
+  const isScanFlow = to.name === 'auth' && typeof to.query.scan === 'string' && to.query.scan !== '';
 
-  if (userStore.isLoggedIn && to.name === 'auth') {
+  if (userStore.isLoggedIn && to.name === 'auth' && !isScanFlow) {
     return redirect === '/auth' ? '/' : redirect;
   }
 
