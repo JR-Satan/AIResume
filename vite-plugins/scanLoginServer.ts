@@ -27,24 +27,56 @@ const sessions = new Map<string, ScanSession>();
 const genSessionId = () =>
   `s_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 
-// 获取一个可供同局域网手机访问的 IPv4 地址
-const getLanAddress = () => {
-  const networks = networkInterfaces();
-  for (const interfaces of Object.values(networks)) {
-    for (const item of interfaces || []) {
-      if (item.family === 'IPv4' && !item.internal) return item.address;
-    }
-  }
-  return 'localhost';
+const normalizeExplicitHost = (host?: string | boolean | null) => {
+  if (typeof host !== 'string') return '';
+  if (!host || host === '0.0.0.0' || host === '::') return '';
+  return host.replace(/^https?:\/\//, '').split(':')[0];
 };
 
-const getRequestOrigin = (req: IncomingMessage) => {
+const isVirtualInterface = (name: string) =>
+  /vmware|virtualbox|veth|vethernet|docker|wsl|hyper-v|loopback|蓝牙/i.test(name);
+
+// 获取一个可供同局域网手机访问的 IPv4 地址
+const getLanAddress = (configuredHost?: string | boolean | null) => {
+  const explicitHost =
+    normalizeExplicitHost(process.env.VITE_SCAN_HOST) ||
+    normalizeExplicitHost(process.env.SCAN_LOGIN_HOST) ||
+    normalizeExplicitHost(configuredHost);
+
+  if (explicitHost) return explicitHost;
+
+  const networks = networkInterfaces();
+  const candidates: Array<{ address: string; score: number }> = [];
+
+  for (const [interfaceName, interfaces] of Object.entries(networks)) {
+    for (const item of interfaces || []) {
+      const name = interfaceName || '';
+      if (item.family !== 'IPv4' || item.internal || isVirtualInterface(name)) continue;
+
+      let score = 0;
+      if (/wlan|wi-?fi|wireless|无线/i.test(name)) score += 30;
+      if (/ethernet|以太网/i.test(name)) score += 10;
+      if (/^10\./.test(item.address)) score += 8;
+      if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(item.address)) score += 6;
+      if (/^192\.168\./.test(item.address)) score += 4;
+      candidates.push({ address: item.address, score });
+    }
+  }
+
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates[0]?.address || 'localhost';
+};
+
+const getRequestOrigin = (req: IncomingMessage, configuredHost?: string | boolean | null) => {
+  const explicitOrigin = process.env.VITE_SCAN_ORIGIN || process.env.SCAN_LOGIN_ORIGIN;
+  if (explicitOrigin) return explicitOrigin.replace(/\/$/, '');
+
   const host = req.headers.host || 'localhost:5173';
   const hostName = host.split(':')[0];
   const isLocalhost = hostName === 'localhost' || hostName === '127.0.0.1' || hostName === '::1';
   const port = host.includes(':') ? host.split(':').pop() : '';
   const protocol = (req.socket as typeof req.socket & { encrypted?: boolean }).encrypted ? 'https' : 'http';
-  const reachableHost = isLocalhost ? getLanAddress() : hostName;
+  const reachableHost = isLocalhost ? getLanAddress(configuredHost) : hostName;
   return `${protocol}://${reachableHost}${port ? `:${port}` : ''}`;
 };
 
@@ -88,7 +120,7 @@ export function scanLoginServer(): Plugin {
 
         // 电脑端：获取二维码应使用的局域网访问地址
         if (url.startsWith('/api/scan/origin') && req.method === 'GET') {
-          return sendJson(res, 200, { origin: getRequestOrigin(req) });
+          return sendJson(res, 200, { origin: getRequestOrigin(req, server.config.server.host) });
         }
 
         // 电脑端：创建扫码会话
