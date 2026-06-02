@@ -77,7 +77,7 @@ import { message } from 'ant-design-vue';
 import QRCode from 'qrcode';
 import { useUserStore } from '../../store/useUserStore';
 import { parseDeviceInfo } from '../../utils/deviceInfo';
-import { confirmSession, createSession, pollSession } from '../../services/scanService';
+import { confirmSession, createSession, getScanOrigin, pollSession } from '../../services/scanService';
 
 const router = useRouter();
 const route = useRoute();
@@ -183,7 +183,8 @@ const startPcScanFlow = async () => {
   try {
     const id = await createSession();
     // 二维码编码：当前站点的 /auth 页 + scan 会话参数；手机扫码打开后自动进入扫码模式
-    const url = `${window.location.origin}/auth?scan=${encodeURIComponent(id)}`;
+    const origin = await getScanOrigin();
+    const url = `${origin}/auth?scan=${encodeURIComponent(id)}`;
     qrDataUrl.value = await QRCode.toDataURL(url, { width: 200, margin: 1 });
 
     pollTimer = setInterval(async () => {

@@ -10,6 +10,7 @@
 // 会话只存在内存（Map），带过期时间，无需数据库。仅用于本地/局域网演示。
 import type { Plugin } from 'vite';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { networkInterfaces } from 'node:os';
 
 // 单个扫码会话
 interface ScanSession {
@@ -25,6 +26,27 @@ const sessions = new Map<string, ScanSession>();
 // 生成会话 id（时间戳 + 随机串，足够本地唯一）
 const genSessionId = () =>
   `s_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+
+// 获取一个可供同局域网手机访问的 IPv4 地址
+const getLanAddress = () => {
+  const networks = networkInterfaces();
+  for (const interfaces of Object.values(networks)) {
+    for (const item of interfaces || []) {
+      if (item.family === 'IPv4' && !item.internal) return item.address;
+    }
+  }
+  return 'localhost';
+};
+
+const getRequestOrigin = (req: IncomingMessage) => {
+  const host = req.headers.host || 'localhost:5173';
+  const hostName = host.split(':')[0];
+  const isLocalhost = hostName === 'localhost' || hostName === '127.0.0.1' || hostName === '::1';
+  const port = host.includes(':') ? host.split(':').pop() : '';
+  const protocol = (req.socket as typeof req.socket & { encrypted?: boolean }).encrypted ? 'https' : 'http';
+  const reachableHost = isLocalhost ? getLanAddress() : hostName;
+  return `${protocol}://${reachableHost}${port ? `:${port}` : ''}`;
+};
 
 // 清理过期会话
 const sweep = () => {
@@ -63,6 +85,11 @@ export function scanLoginServer(): Plugin {
         const url = req.url || '';
         if (!url.startsWith('/api/scan/')) return next();
         sweep();
+
+        // 电脑端：获取二维码应使用的局域网访问地址
+        if (url.startsWith('/api/scan/origin') && req.method === 'GET') {
+          return sendJson(res, 200, { origin: getRequestOrigin(req) });
+        }
 
         // 电脑端：创建扫码会话
         if (url.startsWith('/api/scan/create') && req.method === 'POST') {

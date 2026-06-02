@@ -8,6 +8,17 @@ import type { User } from '../types/user';
 // 接口都挂在当前站点同源的 /api/scan 下（dev 中间件提供）
 const BASE = '/api/scan';
 
+// 电脑端：获取二维码应编码的访问地址，避免 localhost 导致手机无法访问
+export async function getScanOrigin(): Promise<string> {
+  try {
+    const res = await fetch(`${BASE}/origin`);
+    const data = await res.json();
+    return data.origin || window.location.origin;
+  } catch {
+    return window.location.origin;
+  }
+}
+
 // 电脑端：创建扫码会话，返回 sessionId
 export async function createSession(): Promise<string> {
   const res = await fetch(`${BASE}/create`, { method: 'POST' });
