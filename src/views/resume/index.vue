@@ -16,14 +16,10 @@
         </a-popconfirm>
 
         <!-- 保存版本 -->
-        <a-popconfirm title="确定要将当前简历保存为一个历史版本吗？" ok-text="保存" cancel-text="取消" @confirm="handleSaveHistory"
-          :disabled="historyOpen">
-          <template #icon><save-outlined style="color: #52c41a" /></template>
-          <a-button :disabled="historyOpen">
-            <save-outlined />
-            保存
-          </a-button>
-        </a-popconfirm>
+        <a-button :disabled="historyOpen" @click="openSaveHistoryModal">
+          <save-outlined />
+          保存
+        </a-button>
 
         <!-- 清空数据 -->
         <a-popconfirm title="确定要清空当前简历数据吗？" ok-text="清空" cancel-text="取消" @confirm="resumeStore.clearData"
@@ -64,6 +60,29 @@
       <history-panel v-if="historyOpen" :open="historyOpen" />
       <resumePreview v-else />
     </div>
+
+    <a-modal
+      v-model:open="saveHistoryModalOpen"
+      title="保存历史版本"
+      ok-text="保存"
+      cancel-text="取消"
+      :confirm-loading="savingHistory"
+      @ok="handleSaveHistory"
+      @cancel="resetSaveHistoryForm"
+    >
+      <a-form layout="vertical">
+        <a-form-item label="提交信息说明">
+          <a-textarea
+            v-model:value="historyTitle"
+            placeholder="请输入本次保存的说明，例如：优化项目经历描述"
+            :maxlength="80"
+            :rows="3"
+            show-count
+          />
+        </a-form-item>
+      </a-form>
+      <p class="save-tip">不填写时，历史版本会默认使用保存时间作为标题。</p>
+    </a-modal>
   </div>
 </template>
 
@@ -78,6 +97,9 @@ import type { UploadProps } from "ant-design-vue";
 import { ref, onUnmounted } from 'vue';
 const resumeStore = useResumeStore();
 const fileList = ref<UploadProps["fileList"]>([]);
+const saveHistoryModalOpen = ref(false);
+const savingHistory = ref(false);
+const historyTitle = ref('');
 
 // ========== 历史版本面板状态 ==========
 const historyOpen = ref(false);
@@ -95,11 +117,25 @@ const handleAutoFill = () => {
   resumeStore.autoFillData();
 };
 
+const openSaveHistoryModal = () => {
+  historyTitle.value = '';
+  saveHistoryModalOpen.value = true;
+};
+
+const resetSaveHistoryForm = () => {
+  savingHistory.value = false;
+  historyTitle.value = '';
+};
+
 // 手动保存历史版本
 const handleSaveHistory = () => {
-  const savedVersion = resumeStore.saveHistorySnapshot();
+  savingHistory.value = true;
+  const savedVersion = resumeStore.saveHistorySnapshot(undefined, historyTitle.value);
+  savingHistory.value = false;
   if (savedVersion) {
     message.success('已保存为历史版本');
+    saveHistoryModalOpen.value = false;
+    resetSaveHistoryForm();
   } else {
     message.warning('当前状态无法保存历史版本');
   }
@@ -166,6 +202,12 @@ const handleFileUpload = (file: File) => {
 :deep(.resume-edit) {
   flex: 1;
   overflow-y: auto;
+}
+
+.save-tip {
+  margin: -8px 0 0;
+  color: #8c8c8c;
+  font-size: 12px;
 }
 
 </style>

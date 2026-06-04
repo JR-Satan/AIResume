@@ -22,6 +22,7 @@ export interface ResumeSnapshot {
 export interface HistoryVersion {
   id: string;
   timestamp: number;
+  title?: string;
   snapshot: ResumeSnapshot;
 }
 
@@ -60,14 +61,17 @@ export function listHistory(
 export function saveHistory(
   snapshot: ResumeSnapshot,
   templateId: string,
-  username?: string | null
+  username?: string | null,
+  title?: string
 ): HistoryVersion {
   const key = getHistoryKey(templateId, username);
   const list = listHistory(templateId, username);
+  const normalizedTitle = title?.trim();
 
   const version: HistoryVersion = {
     id: generateId(),
     timestamp: Date.now(),
+    ...(normalizedTitle ? { title: normalizedTitle } : {}),
     snapshot,
   };
 

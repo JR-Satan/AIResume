@@ -51,8 +51,8 @@
           <div class="version-info">
             <clock-circle-outlined class="version-icon" />
             <div class="version-text">
-              <span class="version-time">{{ formatTime(version.timestamp) }}</span>
-              <span class="version-label">点击预览此版本</span>
+              <span class="version-time">{{ getVersionTitle(version) }}</span>
+              <span class="version-label">{{ getVersionSubtitle(version) }}</span>
             </div>
           </div>
           <div class="version-actions">
@@ -217,7 +217,7 @@ const restoreVersion = (version: HistoryVersion) => {
 const confirmDelete = (version: HistoryVersion) => {
   Modal.confirm({
     title: '删除版本',
-    content: `确定要删除 ${formatTime(version.timestamp)} 这个版本吗？此操作不可撤销。`,
+    content: `确定要删除 ${getVersionTitle(version)} 这个版本吗？此操作不可撤销。`,
     okText: '删除',
     okType: 'danger',
     cancelText: '取消',
@@ -231,6 +231,14 @@ const confirmDelete = (version: HistoryVersion) => {
       }
     },
   });
+};
+
+const getVersionTitle = (version: HistoryVersion): string => {
+  return version.title?.trim() || formatTime(version.timestamp);
+};
+
+const getVersionSubtitle = (version: HistoryVersion): string => {
+  return version.title?.trim() ? formatTime(version.timestamp) : '点击预览此版本';
 };
 
 // ========== 时间格式化 ==========
@@ -528,12 +536,16 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
 .version-time {
   font-size: 14px;
   font-weight: 500;
   color: var(--text-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .version-label {
