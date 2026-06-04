@@ -123,7 +123,7 @@ export const useResumeStore = defineStore('resume', {
     },
 
     // 保存当前数据为历史版本快照
-    saveHistorySnapshot(username?: string | null, title?: string): HistoryVersion | null {
+    saveHistorySnapshot(username?: string | null): HistoryVersion | null {
       if (this.isHistoryMode) return null;
 
       const historyUsername = resolveHistoryUsername(username);
@@ -147,7 +147,7 @@ export const useResumeStore = defineStore('resume', {
         resumeSetting: JSON.parse(JSON.stringify(this.resumeSetting)),
       };
 
-      return saveHistory(snapshot, templateId, historyUsername, title);
+      return saveHistory(snapshot, templateId, historyUsername);
     },
 
     // 进入历史版本预览

@@ -39,6 +39,72 @@ function generateId(): string {
   return `${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 }
 
+function isSameValue(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function appendChange(changes: string[], label: string): void {
+  if (!changes.includes(label)) {
+    changes.push(label);
+  }
+}
+
+function collectItemChanges<T extends { id?: number | string }>(
+  current: T[],
+  previous: T[] | undefined,
+  label: string
+): string[] {
+  if (!previous) return [];
+
+  const changes: string[] = [];
+  const previousByKey = new Map<string, { item: T; index: number }>();
+  previous.forEach((item, index) => {
+    previousByKey.set(String(item.id ?? index), { item, index });
+  });
+
+  const currentKeys = new Set<string>();
+  current.forEach((item, index) => {
+    const key = String(item.id ?? index);
+    currentKeys.add(key);
+    const previousItem = previousByKey.get(key);
+
+    if (!previousItem || previousItem.index !== index || !isSameValue(item, previousItem.item)) {
+      appendChange(changes, `${label} #${index + 1}`);
+    }
+  });
+
+  previous.forEach((item, index) => {
+    const key = String(item.id ?? index);
+    if (!currentKeys.has(key)) {
+      appendChange(changes, `${label} #${index + 1}`);
+    }
+  });
+
+  return changes;
+}
+
+function generateHistoryTitle(snapshot: ResumeSnapshot, previous?: ResumeSnapshot): string | undefined {
+  if (!previous) return '初始版本';
+
+  const changes: string[] = [];
+  if (!isSameValue(snapshot.personalInfo, previous.personalInfo)) appendChange(changes, '个人信息');
+  if (!isSameValue(snapshot.summary, previous.summary)) appendChange(changes, '个人总结');
+  if (!isSameValue(snapshot.sectionOrder, previous.sectionOrder)) appendChange(changes, '模块顺序');
+  if (!isSameValue(snapshot.resumeSetting, previous.resumeSetting)) appendChange(changes, '简历设置');
+
+  changes.push(...collectItemChanges(snapshot.education, previous.education, '教育经历'));
+  changes.push(...collectItemChanges(snapshot.workExperience, previous.workExperience, '工作经历'));
+  changes.push(...collectItemChanges(snapshot.skills, previous.skills, '技能'));
+  changes.push(...collectItemChanges(snapshot.projects, previous.projects, '项目经历'));
+  changes.push(...collectItemChanges(snapshot.honors, previous.honors, '荣誉奖项'));
+
+  if (changes.length === 0) return '改动：无明显内容变化';
+
+  const visibleChanges = changes.slice(0, 6);
+  const suffix = changes.length > visibleChanges.length ? ` 等 ${changes.length} 处` : '';
+  return `改动：${visibleChanges.join('，')}${suffix}`;
+}
+
 // ========== 公共 API ==========
 
 /** 获取某模板的全部历史版本（按时间倒序，最新在前） */
@@ -61,17 +127,16 @@ export function listHistory(
 export function saveHistory(
   snapshot: ResumeSnapshot,
   templateId: string,
-  username?: string | null,
-  title?: string
+  username?: string | null
 ): HistoryVersion {
   const key = getHistoryKey(templateId, username);
   const list = listHistory(templateId, username);
-  const normalizedTitle = title?.trim();
+  const title = generateHistoryTitle(snapshot, list[0]?.snapshot);
 
   const version: HistoryVersion = {
     id: generateId(),
     timestamp: Date.now(),
-    ...(normalizedTitle ? { title: normalizedTitle } : {}),
+    ...(title ? { title } : {}),
     snapshot,
   };
 
