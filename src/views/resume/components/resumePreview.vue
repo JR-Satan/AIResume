@@ -47,6 +47,24 @@
       </a-form-item>
     </a-modal>
 
+    <!-- DPI选择弹窗 -->
+    <a-modal v-model:open="dpiModalOpen" title="导出PDF - 选择DPI" @ok="confirmExport">
+      <template #footer>
+        <a-button key="cancel" @click="dpiModalOpen = false">取消</a-button>
+        <a-button key="submit" type="primary" @click="confirmExport">导出</a-button>
+      </template>
+      <a-form-item label="导出清晰度">
+        <a-select v-model:value="selectedDpi" style="width: 200px;">
+          <a-select-option v-for="dpi in dpiOptions" :key="dpi" :value="dpi">
+            {{ dpi }} DPI
+          </a-select-option>
+        </a-select>
+      </a-form-item>
+      <div style="color: #888; font-size: 12px; margin-top: 8px;">
+        数值越高文件越大、越清晰
+      </div>
+    </a-modal>
+
     <a-button type="primary" @click="exportToPDF" id="export-button">导出PDF</a-button>
   </div>
   <div class="preview" ref="resumePreview" @mousedown="startDragging" @wheel.prevent="handleZoom">
@@ -183,8 +201,19 @@ const resumeSettingClickOK = () => {
   message.success('设置成功');
 }
 
-// 导出简历为 PDF
-const exportToPDF = async () => {
+// PDF导出DPI选项
+const dpiOptions = [72, 100, 150, 300, 400, 600];
+const dpiModalOpen = ref(false);
+const selectedDpi = ref(150);
+
+// 导出简历为 PDF——先弹窗选DPI再导出
+const exportToPDF = () => {
+  dpiModalOpen.value = true;
+};
+
+const confirmExport = async () => {
+  dpiModalOpen.value = false;
+  const scale = selectedDpi.value / 96;
   await nextTick();
   // 创建一个新的容器来渲染简历内容
   const tempContainer = document.createElement("div");
@@ -214,7 +243,7 @@ const exportToPDF = async () => {
         filename: "resume.pdf",
         margin: 0,
         image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
+        html2canvas: { scale: scale, useCORS: true },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
       };
       html2pdf().from(content).set(options).save().finally(() => {

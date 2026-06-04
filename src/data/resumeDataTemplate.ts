@@ -81,6 +81,7 @@ export const resumeTemplate = {
     paragraphSpacing: 0,
     currentTemplate: "202501",
     padding_top_bottom: 4,
-    padding_left_right: 15
+    padding_left_right: 15,
+    dpiScale: 150
   }
 } as const;

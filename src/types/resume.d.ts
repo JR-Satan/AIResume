@@ -74,6 +74,7 @@ export interface ResumeSetting {
   currentTemplate: String;  // 当前简历模板ID
   padding_left_right: number;  // 左右边距
   padding_top_bottom: number;  // 上下边距
+  dpiScale: number;            // PDF导出DPI (72/100/150/300/400/600)
 }
 
 export interface ResumeState {
