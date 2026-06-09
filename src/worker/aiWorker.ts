@@ -1,14 +1,59 @@
 // 发送请求的worker
 self.onmessage = async (event) => {
   const { taskId, messages, userApiKey, model, API_URL, requestOptions = {} } = event.data;
+  const { timeoutMs, ...apiRequestOptions } = requestOptions as { timeoutMs?: number; [key: string]: unknown };
+  const controller = new AbortController();
+  const timeout = Number(timeoutMs) > 0
+    ? setTimeout(() => controller.abort(), Number(timeoutMs))
+    : null;
   const requestData = {
     model,
     messages,
     stream: true, // 流式响应
-    ...requestOptions,
+    ...apiRequestOptions,
+    temperature: 0,
   };
   const postError = (errorMessage: string) => {
     self.postMessage({ taskId, isComplete: true, result: errorMessage, error: errorMessage });
+  };
+  const readChoiceContent = (value: any): string => {
+    const choice = value?.choices?.[0];
+    return String(
+      choice?.message?.content ||
+      choice?.delta?.content ||
+      choice?.text ||
+      value?.output_text ||
+      value?.content ||
+      ''
+    );
+  };
+  const parseSseText = (rawText: string): string => {
+    let content = '';
+    rawText.split(/\r?\n/).forEach(line => {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith('data: ')) return;
+      const jsonLine = trimmed.slice(6).trim();
+      if (!jsonLine || jsonLine === '[DONE]') return;
+      try {
+        content += readChoiceContent(JSON.parse(jsonLine));
+      } catch {
+        content += jsonLine;
+      }
+    });
+    return content.trim();
+  };
+  const parseNonStreamText = (rawText: string): string => {
+    const trimmed = rawText.trim();
+    if (!trimmed) return '';
+    try {
+      const parsedResponse = JSON.parse(trimmed);
+      const messageContent = readChoiceContent(parsedResponse);
+      if (messageContent) return messageContent;
+      return typeof parsedResponse === 'string' ? parsedResponse : JSON.stringify(parsedResponse);
+    } catch {
+      const sseContent = parseSseText(trimmed);
+      return sseContent || trimmed;
+    }
   };
   try {
     const response = await fetch(API_URL, {
@@ -18,6 +63,7 @@ self.onmessage = async (event) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(requestData),
+      signal: controller.signal,
     });
     if (response.status === 401) {
       postError('认证失败，请检查 API Key 是否正确');
@@ -26,22 +72,23 @@ self.onmessage = async (event) => {
       postError(`请求失败，错误码: ${response.status}`);
       return;
     }
-    if (!response.body) {
-      postError('服务器未返回流数据');
+    if (requestData.stream === false) {
+      try {
+        const rawText = await response.text();
+        const messageContent = parseNonStreamText(rawText);
+        if (!messageContent) {
+          postError('服务返回为空，请稍后重试');
+          return;
+        }
+        self.postMessage({ taskId, isComplete: true, result: messageContent });
+      } catch (error) {
+        postError('读取模型响应时出错，请稍后重试');
+      }
       return;
     }
 
-    if (requestData.stream === false) {
-      try {
-        const parsedResponse = await response.json();
-        const messageContent =
-          parsedResponse?.choices?.[0]?.message?.content ||
-          parsedResponse?.choices?.[0]?.delta?.content ||
-          '';
-        self.postMessage({ taskId, isComplete: true, result: messageContent });
-      } catch (error) {
-        postError('解析非流式响应时出错，请稍后重试');
-      }
+    if (!response.body) {
+      postError('服务器未返回流数据');
       return;
     }
 
@@ -94,6 +141,9 @@ self.onmessage = async (event) => {
     if (buffer.trim() && processLine(buffer)) return;
     self.postMessage({ taskId, isComplete: true, result: currentText });
   } catch (error) {
-    postError('请求失败，请稍后重试');
+    const isAbortError = error instanceof DOMException && error.name === 'AbortError';
+    postError(isAbortError ? '请求超时，请稍后重试或减少输入内容' : '请求失败，请稍后重试');
+  } finally {
+    if (timeout) clearTimeout(timeout);
   }
 };

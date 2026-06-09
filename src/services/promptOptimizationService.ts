@@ -20,7 +20,7 @@ type PromptOptimizationOptions = {
 
 const promptJsonRequestOptions: AIRequestOptions = {
   response_format: { type: 'json_object' },
-  temperature: 0.2
+  temperature: 0
 };
 
 const parseJsonObject = <T>(text: string): T | null => {

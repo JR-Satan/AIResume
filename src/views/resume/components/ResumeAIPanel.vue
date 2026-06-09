@@ -1025,6 +1025,11 @@ const handleEvaluate = async () => {
 const handleStructureAnalyze = async () => {
   if (!ensureApiConfigured(router)) return;
   const snapshot = resumeStore.getResumeSnapshot();
+  const targetPosition = getEffectiveTargetPosition(snapshot).trim();
+  if (!targetPosition) {
+    message.warning('请先填写目标岗位方向，再生成岗位结构建议');
+    return;
+  }
   const snapshotKey = createSnapshotCacheKey(snapshot);
   if (structureResult.value && structureCacheKey.value === snapshotKey) {
     structureOpen.value = true;
@@ -1035,14 +1040,15 @@ const handleStructureAnalyze = async () => {
   structureOpen.value = true;
   try {
     structureResult.value = await analyzeResumeStructure(snapshot, undefined, {
-      targetPosition: getEffectiveTargetPosition(snapshot)
+      targetPosition
     });
     structureCacheKey.value = snapshotKey;
     message.success('岗位结构建议已生成');
   } catch (error) {
     console.error('岗位结构建议失败:', error);
     structureOpen.value = false;
-    message.error('岗位结构建议失败，请检查 API Key、API URL 和模型名称');
+    const errorMessage = error instanceof Error ? error.message : '';
+    message.error(errorMessage || '岗位结构建议失败，模型返回格式异常或请求超时，请稍后重试');
   } finally {
     structureAnalyzing.value = false;
   }
