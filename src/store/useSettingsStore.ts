@@ -8,12 +8,12 @@ export const useSettingsStore = defineStore(
     const isDark = ref<boolean>(localStorage.getItem('theme') === 'dark');
     // 主题颜色
     const theme = ref<string>(isDark.value ? '#9c87fe' : '#672DEA');
-    // 阿里云apikey
+    // OpenAI 兼容接口 API Key
     const aliApiKey = ref<string>('');
-    // 阿里云调用接口
-    const aliApiUrl = import.meta.env.VITE_API_URL;  //这里用默认的
-    //模型名称
-    const modelName = ref<string>('qwen-turbo');
+    // OpenAI 兼容接口地址，默认使用 DeepSeek Chat Completions
+    const aliApiUrl = ref<string>(import.meta.env.VITE_API_URL || 'https://api.deepseek.com/chat/completions');
+    // 模型名称
+    const modelName = ref<string>('deepseek-v4-pro');
     // 切换主题
     const toggleTheme = () => {
       isDark.value = !isDark.value;

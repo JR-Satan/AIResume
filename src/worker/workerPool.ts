@@ -1,5 +1,7 @@
 import type { DialogueHistory } from "../types/aiDialogue";
 
+type AIResponseHandler = (responseText: string, isComplete: boolean, error?: string) => void;
+
 export class WorkerPool {
   private workers: Worker[] = []; // Worker 线程池
   private queue: {
@@ -8,7 +10,8 @@ export class WorkerPool {
     userApiKey: string;
     model: string;
     API_URL: string;
-    onResponse: (responseText: string, isComplete: boolean) => void;
+    onResponse: AIResponseHandler;
+    requestOptions?: Record<string, unknown>;
   }[] = []; // 任务队列
   private activeTasks: Map<number, Worker> = new Map(); // 正在执行的任务
   private nextTaskId = 1;     // 任务 ID 计数器
@@ -19,10 +22,10 @@ export class WorkerPool {
       const worker = new Worker(new URL("./aiWorker.ts", import.meta.url), { type: "module" });
       this.workers.push(worker);
       worker.onmessage = (event) => {
-        const { taskId, result, isComplete } = event.data;
+        const { taskId, result, isComplete, error } = event.data;
         const task = this.queue.find((t) => t.taskId === taskId);
         if (task) {
-          task.onResponse(result, isComplete);
+          task.onResponse(result, isComplete, error);
         }
         if (isComplete) {
           this.activeTasks.delete(taskId);
@@ -51,10 +54,11 @@ export class WorkerPool {
     userApiKey: string,
     model: string,
     API_URL: string,
-    onResponse: (responseText: string, isComplete: boolean) => void
+    onResponse: AIResponseHandler,
+    requestOptions?: Record<string, unknown>
   ): void {
     const taskId = this.nextTaskId++;
-    this.queue.push({ taskId, messages, userApiKey, model, API_URL, onResponse });
+    this.queue.push({ taskId, messages, userApiKey, model, API_URL, onResponse, requestOptions });
     this.processQueue();
   }
 
@@ -64,24 +68,31 @@ export class WorkerPool {
   private processQueue() {
     if (this.queue.length > 0 && this.workers.length > 0) {
       const worker = this.workers.pop()!;
-      const { taskId, messages, userApiKey, model, API_URL, onResponse } = this.queue.shift()!;
+      const { taskId, messages, userApiKey, model, API_URL, onResponse, requestOptions } = this.queue.shift()!;
       this.activeTasks.set(taskId, worker);
       try {
         // postMessage自动克隆出现问题，这里手动克隆 messages
         const clonedMessages = JSON.parse(JSON.stringify(messages));
-        worker.postMessage({ taskId, messages: clonedMessages, userApiKey, model, API_URL });
+        worker.postMessage({ taskId, messages: clonedMessages, userApiKey, model, API_URL, requestOptions });
         console.log(`任务${taskId}分配给 Worker:${worker}`);
         worker.onmessage = (event) => {
-          const { taskId, result, isComplete } = event.data;
-          onResponse(result, isComplete);
+          const { taskId, result, isComplete, error } = event.data;
+          onResponse(result, isComplete, error);
           if (isComplete) {
             this.activeTasks.delete(taskId);
             this.workers.push(worker);
             this.processQueue();
           }
         };
+        worker.onerror = (error) => {
+          console.error("Worker 处理任务失败:", error);
+          onResponse("Worker 处理任务失败", true, "Worker 处理任务失败");
+          this.activeTasks.delete(taskId);
+          this.workers.push(worker);
+          this.processQueue();
+        };
       } catch (error) {
-        onResponse("数据传输失败", true);
+        onResponse("数据传输失败", true, "数据传输失败");
         this.workers.push(worker);
         this.processQueue();
       }

@@ -53,6 +53,7 @@
         </a-button>
       </div>
 
+      <ResumeAIPanel v-if="!historyOpen" />
       <resumeEdit />
     </div>
     <!-- 右侧简历展示组件 / 历史版本面板 -->
@@ -67,6 +68,7 @@
 import resumeEdit from './components/resumeEdit.vue';
 import resumePreview from './components/resumePreview.vue';
 import historyPanel from './components/historyPanel.vue';
+import ResumeAIPanel from './components/ResumeAIPanel.vue';
 import { useResumeStore } from "../../store/useResumeStore";
 import { UploadOutlined, HistoryOutlined, SaveOutlined } from '@ant-design/icons-vue';
 import { message } from "ant-design-vue";

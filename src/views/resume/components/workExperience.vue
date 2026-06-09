@@ -56,7 +56,8 @@
                     使其更加简洁、专业和吸引面试官，
                     你返回的内容换行表示一个要点，不用md语法，不要隔行，
                     层次清晰分明：\n${work.description}`" :extend="`下面这个是我简历中的过往工作描述，我可以从哪些方面扩展优化？你的回复用文本就行，不需要md语法，给我一些思路：
-                    \n${work.description}`" @update="(content: string) => work.description = content">
+                    \n${work.description}`" :field-path="`workExperience[${index}].description`"
+              :original-text="work.description" @update="(content: string) => work.description = content">
               <a-textarea v-model:value="work.description" placeholder="请输入工作描述" :auto-size="{ minRows: 2, maxRows: 5 }"
                 style="margin-top: 16px" />
             </AIEnhancePopover>

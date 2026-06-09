@@ -91,3 +91,109 @@ export interface ResumeState {
   resumeSetting: ResumeSetting;
   isHistoryMode: boolean;
 }
+
+export type ResumeContentSnapshot = Omit<
+  ResumeState,
+  'currentId' | 'isFirstVisit' | 'resumeSetting' | 'isHistoryMode'
+>;
+
+export interface PolishExperienceInput {
+  snapshot: ResumeContentSnapshot;
+  fieldPath: string;
+  originalText: string;
+  targetPosition?: string;
+}
+
+export interface PolishExperienceResult {
+  fieldPath: string;
+  originalText: string;
+  polishedText: string;
+  suggestions: string[];
+  optimizationTrace?: TextGradOptimizationTrace;
+}
+
+export interface PolishOperation {
+  fieldPath: string;
+  oldValue: string;
+  newValue: string;
+}
+
+export interface ResumeEvaluationScores {
+  completeness: number;
+  professionalism: number;
+  readability: number;
+  jobMatch: number;
+  total: number;
+}
+
+export interface ResumeSuggestion {
+  fieldPath?: string;
+  itemId?: number | string;
+  problem: string;
+  advice: string;
+}
+
+export interface ResumeEvaluation {
+  scores: ResumeEvaluationScores;
+  comments: string[];
+  suggestions: ResumeSuggestion[];
+}
+
+export type StructureAdvicePriority = 'high' | 'medium' | 'low';
+
+export interface ResumeStructureAdvice {
+  title: string;
+  problem: string;
+  advice: string;
+  priority: StructureAdvicePriority;
+  relatedSection?: SectionKey | 'overall';
+}
+
+export interface ResumeStructureAnalysis {
+  targetPosition: string;
+  structureScore: number;
+  overallJudgement: string;
+  sectionOrderSuggestions: ResumeStructureAdvice[];
+  experienceSelectionSuggestions: ResumeStructureAdvice[];
+  missingContentSuggestions: ResumeStructureAdvice[];
+  riskWarnings: string[];
+}
+
+export type BatchPolishMode = 'fast' | 'deep';
+
+export interface PolishSafetySummary {
+  allowedFieldCount: number;
+  returnedOperationCount: number;
+  acceptedOperationCount: number;
+  blockedOperationCount: number;
+  appliedFieldPaths: string[];
+  blockedReasons: string[];
+}
+
+export interface BatchPolishOptions {
+  mode?: BatchPolishMode;
+  targetPosition?: string;
+  structureAdvice?: ResumeStructureAnalysis | null;
+}
+
+export interface AITaskOptions {
+  targetPosition?: string;
+}
+
+export interface BatchPolishResult {
+  operations: PolishOperation[];
+  summary: string;
+  suggestions: ResumeSuggestion[];
+  mode?: BatchPolishMode;
+  usedStructureAdvice?: boolean;
+  safety?: PolishSafetySummary;
+  optimizationTrace?: TextGradOptimizationTrace;
+}
+
+export interface TextGradOptimizationTrace {
+  objective: string;
+  draft: string;
+  textualGradient: string;
+  optimized: string;
+  iterations: number;
+}

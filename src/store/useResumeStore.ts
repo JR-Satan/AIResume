@@ -8,10 +8,48 @@ import { useUserStore } from './useUserStore';
 import type {
   Education, Honor, PersonalInfo,
   Project, ResumeState, Skill,
-  WorkExperience, ResumeSetting, SectionKey
+  WorkExperience, ResumeSetting, SectionKey,
+  ResumeContentSnapshot, PolishOperation
 } from '../types/resume';
 import { saveHistory } from '../services/archiveService';
 import type { HistoryVersion, ResumeSnapshot } from '../services/archiveService';
+
+const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+
+const allowedPolishFieldPathPattern =
+  /^(workExperience\[\d+\]\.description|projects\[\d+\]\.(briefIntroduction|description)|honors\[\d+\]\.description|summary)$/;
+
+const isAllowedPolishFieldPath = (fieldPath: string): boolean =>
+  allowedPolishFieldPathPattern.test(fieldPath);
+
+const parseFieldPath = (fieldPath: string): Array<string | number> => {
+  const parts: Array<string | number> = [];
+  const pattern = /([^[.\]]+)|\[(\d+)\]/g;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(fieldPath)) !== null) {
+    parts.push(match[2] === undefined ? match[1] : Number(match[2]));
+  }
+  return parts;
+};
+
+const resolveFieldPath = (root: Record<string, unknown>, fieldPath: string) => {
+  const parts = parseFieldPath(fieldPath);
+  if (parts.length === 0) return null;
+
+  let target: unknown = root;
+  for (let index = 0; index < parts.length - 1; index += 1) {
+    const key = parts[index];
+    if (target === null || target === undefined || typeof target !== 'object') {
+      return null;
+    }
+    target = (target as Record<string, unknown>)[key as keyof typeof target];
+  }
+
+  return {
+    parent: target,
+    key: parts[parts.length - 1]
+  };
+};
 
 const resolveHistoryUsername = (username?: string | null): string | null => {
   const normalizedUsername = username?.trim();
@@ -186,6 +224,61 @@ export const useResumeStore = defineStore('resume', {
     saveToLocalStorage() {
       localStorage.setItem('resumeData', JSON.stringify(this.$state));
       localStorage.setItem('currentId', JSON.stringify(this.currentId));
+    },
+
+    getResumeSnapshot(): ResumeContentSnapshot {
+      return clone({
+        personalInfo: this.personalInfo,
+        education: this.education,
+        workExperience: this.workExperience,
+        skills: this.skills,
+        projects: this.projects,
+        honors: this.honors,
+        summary: this.summary,
+        sectionOrder: this.sectionOrder
+      });
+    },
+
+    getFieldValue(fieldPath: string): unknown {
+      const resolved = resolveFieldPath(this.$state as unknown as Record<string, unknown>, fieldPath);
+      if (!resolved || resolved.parent === null || resolved.parent === undefined || typeof resolved.parent !== 'object') {
+        return undefined;
+      }
+      return (resolved.parent as Record<string, unknown>)[resolved.key as keyof typeof resolved.parent];
+    },
+
+    applyPolishOperations(operations: PolishOperation[]) {
+      const applied: PolishOperation[] = [];
+      const skipped: Array<PolishOperation & { reason: string }> = [];
+
+      operations.forEach((operation) => {
+        if (!isAllowedPolishFieldPath(operation.fieldPath)) {
+          skipped.push({ ...operation, reason: '不允许修改该字段' });
+          return;
+        }
+
+        const resolved = resolveFieldPath(this.$state as unknown as Record<string, unknown>, operation.fieldPath);
+        if (!resolved || resolved.parent === null || resolved.parent === undefined || typeof resolved.parent !== 'object') {
+          skipped.push({ ...operation, reason: '字段路径不存在' });
+          return;
+        }
+
+        const parent = resolved.parent as Record<string, unknown>;
+        const currentValue = parent[resolved.key as keyof typeof parent];
+        if (currentValue !== operation.oldValue) {
+          skipped.push({ ...operation, reason: '字段内容已被修改' });
+          return;
+        }
+
+        parent[resolved.key as keyof typeof parent] = operation.newValue;
+        applied.push(operation);
+      });
+
+      if (applied.length > 0) {
+        this.saveToLocalStorage();
+      }
+
+      return { applied, skipped };
     },
 
     setSectionOrder(order: SectionKey[]) {

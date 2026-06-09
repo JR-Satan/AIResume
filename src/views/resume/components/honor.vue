@@ -45,7 +45,8 @@
                     使其更加简洁、专业和吸引面试官，
                     你返回的内容换行表示一个要点，不用md语法，不要隔行，
                     层次清晰分明：\n${honor.description}`" :extend="`下面这个是我简历中的获奖描述，我可以从哪些方面扩展优化？你的回复用文本就行，不需要md语法，给我一些思路：
-                    \n${honor.description}`" @update="(content: string) => honor.description = content">
+                    \n${honor.description}`" :field-path="`honors[${index}].description`"
+              :original-text="honor.description" @update="(content: string) => honor.description = content">
               <a-textarea v-model:value="honor.description" placeholder="请输入奖项描述"
                 :auto-size="{ minRows: 2, maxRows: 5 }" style="margin-top: 16px" />
             </AIEnhancePopover>

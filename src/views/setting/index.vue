@@ -5,27 +5,25 @@
 
       <!-- 说明文字 -->
       <p class="tips">
-        注意：此处调用接口使用的是 OpenAI 的接口格式
-        （换言之，只要你的大模型接口厂商使用的是 OpenAI 格式，你填入都能正常调用接口）
-        <span style="color:red">默认值不会改请不要动！！要是完全不会，就只填apikey就行了，点击链接前往获取key，填入即可</span>
+        注意：此处调用接口使用 OpenAI 兼容格式。当前默认配置为 DeepSeek，
+        如果不会配置，只需要填写 API Key。
       </p>
       <div class="input-group">
-        <label for="api-url">大模型名称<span style="color:red">（不懂勿改）</span></label>
-        <a-input id="api-url" v-model:value="settingsStore.modelName" placeholder="请输入模型名称" />
+        <label for="model-name">大模型名称<span style="color:red">（不懂勿改）</span></label>
+        <a-input id="model-name" v-model:value="settingsStore.modelName" placeholder="请输入模型名称" />
         <p class="tips">
-          如果用我的反代地址，请使用阿里的大模型，如果不会配置，请勿修改，默认为"qwen-turbo"
-          <a href="https://bailian.console.aliyun.com/#/model-market" target="_blank">
-            查看阿里百炼模型大全
+          DeepSeek 推荐使用 deepseek-v4-pro。当前默认值为 deepseek-v4-pro。
+          <a href="https://api-docs.deepseek.com/" target="_blank">
+            查看 DeepSeek API 文档
           </a>。
         </p>
       </div>
 
       <div class="input-group">
         <label for="api-key">API Key（使用大模型）</label>
-        <a-input id="api-key" v-model:value="settingsStore.aliApiKey" placeholder="请输入 API Key" />
+        <a-input-password id="api-key" v-model:value="settingsStore.aliApiKey" placeholder="请输入 API Key" />
         <p class="tips">
-          请填写 API Key 用于调用 AI 模型。如果下面使用的是我提供的反代地址，请前往阿里云获取
-          <a href="https://bailian.console.aliyun.com/?apiKey=1#/api-key" target="_blank">阿里云百炼 API Key</a>。
+          请填写 DeepSeek API Key。Key 只保存在当前浏览器本地，请勿提交到代码仓库。
         </p>
       </div>
 
@@ -33,11 +31,10 @@
         <label for="api-url">API URL<span style="color:red">（不懂勿改）</span></label>
         <a-input id="api-url" v-model:value="settingsStore.aliApiUrl" placeholder="请输入 API URL" />
         <p class="tips">
-          请填写 API URL（经过反向代理，解决跨域问题），用于调用 AI 模型。或者直接使用我提供的反代地址：
-          https://resumeai.404.pub/
-          （该地址仅适用于阿里云百炼 API Key）。
-          <a href="https://help.aliyun.com/zh/model-studio/developer-reference/use-qwen-by-calling-api" target="_blank">
-            查看阿里百炼官方文档
+          本地开发默认使用 /deepseek-api/chat/completions，由 Vite 代理转发到 DeepSeek。
+          生产部署时请改成自己的后端或反向代理地址。
+          <a href="https://api-docs.deepseek.com/api/create-chat-completion" target="_blank">
+            查看 Chat Completions 文档
           </a>。
         </p>
       </div>
