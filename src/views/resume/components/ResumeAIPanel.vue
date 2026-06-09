@@ -1025,11 +1025,6 @@ const handleEvaluate = async () => {
 const handleStructureAnalyze = async () => {
   if (!ensureApiConfigured(router)) return;
   const snapshot = resumeStore.getResumeSnapshot();
-  const targetPosition = getEffectiveTargetPosition(snapshot).trim();
-  if (!targetPosition) {
-    message.warning('请先填写目标岗位方向，再生成岗位结构建议');
-    return;
-  }
   const snapshotKey = createSnapshotCacheKey(snapshot);
   if (structureResult.value && structureCacheKey.value === snapshotKey) {
     structureOpen.value = true;
@@ -1040,7 +1035,7 @@ const handleStructureAnalyze = async () => {
   structureOpen.value = true;
   try {
     structureResult.value = await analyzeResumeStructure(snapshot, undefined, {
-      targetPosition
+      targetPosition: getEffectiveTargetPosition(snapshot)
     });
     structureCacheKey.value = snapshotKey;
     message.success('岗位结构建议已生成');

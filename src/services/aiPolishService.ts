@@ -205,231 +205,6 @@ const normalizeStructureAdviceList = (value: unknown): ResumeStructureAdvice[] =
     .slice(0, 4);
 };
 
-type StructureAdviceCategory = 'order' | 'selection' | 'missing' | 'risk';
-
-type FlatStructureAdvice = ResumeStructureAdvice & {
-  category: StructureAdviceCategory;
-};
-
-const normalizeStructureAdviceCategory = (value: unknown): StructureAdviceCategory => {
-  const category = String(value || '').toLowerCase();
-  if (category.includes('selection') || category.includes('select') || category.includes('取舍')) return 'selection';
-  if (category.includes('经历') || category.includes('项目') || category.includes('工作')) return 'selection';
-  if (category.includes('missing') || category.includes('content') || category.includes('补充')) return 'missing';
-  if (category.includes('risk') || category.includes('风险')) return 'risk';
-  if (category.includes('模块') || category.includes('顺序') || category.includes('结构')) return 'order';
-  return 'order';
-};
-
-const normalizeFlatStructureAdvice = (value: unknown): FlatStructureAdvice | null => {
-  if (!value || typeof value !== 'object') return null;
-  const record = value as Record<string, unknown>;
-  const category = normalizeStructureAdviceCategory(record.category || record.type || record['类型'] || record['类别']);
-  const title = String(record.title || record.name || record['标题'] || record['主题'] || record['类型'] || '').trim();
-  const problem = String(record.problem || record.reason || record.issue || record['问题'] || record['原因'] || title).trim();
-  const adviceText = String(
-    record.advice ||
-    record.suggestion ||
-    record.action ||
-    record.content ||
-    record['建议'] ||
-    record['优化建议'] ||
-    record['建议内容'] ||
-    record['内容'] ||
-    ''
-  ).trim();
-  const relatedSection = String(
-    record.relatedSection ||
-    record.section ||
-    record.module ||
-    record['模块'] ||
-    record['部分'] ||
-    'overall'
-  ).trim();
-  if (!title || !adviceText) return null;
-  return {
-    title,
-    problem,
-    advice: adviceText,
-    priority: normalizePriority(record.priority),
-    relatedSection: structureSectionSet.has(relatedSection)
-      ? relatedSection as ResumeStructureAdvice['relatedSection']
-      : 'overall',
-    category
-  };
-};
-
-const normalizeFlatStructureAdviceList = (value: unknown): FlatStructureAdvice[] => {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map(normalizeFlatStructureAdvice)
-    .filter((item): item is FlatStructureAdvice => Boolean(item))
-    .slice(0, 8);
-};
-
-const extractFlatStructureAdviceList = (parsed: JsonRecord): FlatStructureAdvice[] => {
-  const directValues = [
-    parsed.adviceItems,
-    parsed.suggestions,
-    parsed.advice,
-    parsed.items,
-    parsed.result,
-    parsed['建议'],
-    parsed['建议列表'],
-    parsed['结构建议']
-  ];
-  for (const value of directValues) {
-    const items = normalizeFlatStructureAdviceList(value);
-    if (items.length > 0) return items;
-  }
-  const fromOldSchema = [
-    ...normalizeStructureAdviceList(parsed.sectionOrderSuggestions).map(item => ({ ...item, category: 'order' as const })),
-    ...normalizeStructureAdviceList(parsed.experienceSelectionSuggestions).map(item => ({ ...item, category: 'selection' as const })),
-    ...normalizeStructureAdviceList(parsed.missingContentSuggestions).map(item => ({ ...item, category: 'missing' as const })),
-    ...asStringArray(parsed.riskWarnings).map((text): FlatStructureAdvice => ({
-      title: '风险提醒',
-      problem: text,
-      advice: text,
-      priority: 'medium',
-      relatedSection: 'overall',
-      category: 'risk'
-    }))
-  ];
-  return fromOldSchema.slice(0, 8);
-};
-
-const normalizeFlatStructureAnalysis = (
-  parsed: JsonRecord | null,
-  snapshot: ResumeContentSnapshot,
-  targetPositionOverride?: string
-): ResumeStructureAnalysis | null => {
-  if (!parsed || containsModelErrorText(parsed)) return null;
-  const adviceItems = extractFlatStructureAdviceList(parsed);
-  if (adviceItems.length === 0) return null;
-  const targetPosition = String(
-    parsed.targetPosition || resolveTargetPosition(snapshot, targetPositionOverride)
-  ).trim();
-  const pick = (category: StructureAdviceCategory) =>
-    adviceItems
-      .filter(item => item.category === category)
-      .map(({ category: _category, ...item }) => item)
-      .slice(0, 2);
-  const riskWarnings = adviceItems
-    .filter(item => item.category === 'risk')
-    .map(item => item.advice || item.problem || item.title)
-    .filter(Boolean)
-    .slice(0, 3);
-  return {
-    targetPosition,
-    structureScore: clampScore(parsed.structureScore),
-    overallJudgement: String(parsed.overallJudgement || '已生成岗位导向的结构建议。').trim(),
-    sectionOrderSuggestions: pick('order'),
-    experienceSelectionSuggestions: pick('selection'),
-    missingContentSuggestions: pick('missing'),
-    riskWarnings
-  };
-};
-
-const collectTextFragments = (value: unknown, output: string[] = []): string[] => {
-  if (value === null || value === undefined) return output;
-  if (typeof value === 'string') {
-    const text = value.trim();
-    if (text) output.push(text);
-    return output;
-  }
-  if (Array.isArray(value)) {
-    value.forEach(item => collectTextFragments(item, output));
-    return output;
-  }
-  if (typeof value === 'object') {
-    Object.entries(value as Record<string, unknown>).forEach(([key, item]) => {
-      if (key === 'targetPosition' || key === 'structureScore') return;
-      collectTextFragments(item, output);
-    });
-  }
-  return output;
-};
-
-const splitAiAdviceText = (text: string): string[] => {
-  const withoutFence = text
-    .replace(/^```(?:json)?\s*/i, '')
-    .replace(/```$/i, '')
-    .replace(/[{}[\]",]/g, '\n');
-  return withoutFence
-    .split(/\r?\n|[。；;]/)
-    .map(item => item.replace(/^\s*[-*•\d.、)）\]]+\s*/, '').trim())
-    .filter(item =>
-      item.length >= 8 &&
-      !/^targetPosition|^structureScore|^overallJudgement|^adviceItems/i.test(item) &&
-      !/^(order|selection|missing|risk|high|medium|low)$/i.test(item)
-    )
-    .slice(0, 8);
-};
-
-const inferCategoryFromText = (text: string, index: number): StructureAdviceCategory => {
-  if (/风险|不匹配|缺少|薄弱|不足/.test(text)) return index >= 3 ? 'risk' : 'missing';
-  if (/补充|增加|量化|结果|指标|关键词/.test(text)) return 'missing';
-  if (/保留|弱化|突出|经历|项目|工作/.test(text)) return 'selection';
-  if (/顺序|结构|模块|前置|后置|调整/.test(text)) return 'order';
-  return (['order', 'selection', 'missing', 'risk'] as StructureAdviceCategory[])[Math.min(index, 3)] || 'order';
-};
-
-const normalizeStructureAnalysisFromAiText = (
-  rawText: string,
-  parsed: JsonRecord | null,
-  snapshot: ResumeContentSnapshot,
-  targetPositionOverride?: string
-): ResumeStructureAnalysis | null => {
-  if (containsModelErrorText(rawText)) return null;
-  const targetPosition = resolveTargetPosition(snapshot, targetPositionOverride);
-  const fragments = [
-    ...collectTextFragments(parsed),
-    ...splitAiAdviceText(rawText)
-  ]
-    .map(item => item.replace(/\s+/g, ' ').trim())
-    .filter((item, index, array) => item && array.indexOf(item) === index)
-    .slice(0, 7);
-  if (fragments.length === 0) return null;
-
-  const overallJudgement = fragments[0].length > 90
-    ? `${fragments[0].slice(0, 90)}...`
-    : fragments[0];
-  const adviceItems = fragments.slice(1).length > 0 ? fragments.slice(1) : fragments;
-  const flatItems = adviceItems.map((text, index): FlatStructureAdvice => ({
-    category: inferCategoryFromText(text, index),
-    relatedSection: /技能|关键词/.test(text)
-      ? 'skills'
-      : /项目/.test(text)
-        ? 'projects'
-        : /工作|实习/.test(text)
-          ? 'workExperience'
-          : 'overall',
-    priority: index < 2 ? 'high' : 'medium',
-    title: index === 0 ? '结构调整' : index === 1 ? '经历取舍' : index === 2 ? '内容补充' : '风险提醒',
-    problem: text.length > 46 ? `${text.slice(0, 46)}...` : text,
-    advice: text.length > 86 ? `${text.slice(0, 86)}...` : text
-  }));
-  const pick = (category: StructureAdviceCategory) =>
-    flatItems
-      .filter(item => item.category === category)
-      .map(({ category: _category, ...item }) => item)
-      .slice(0, 2);
-  const riskWarnings = flatItems
-    .filter(item => item.category === 'risk')
-    .map(item => item.advice)
-    .slice(0, 3);
-
-  return {
-    targetPosition,
-    structureScore: parsed ? clampScore(parsed.structureScore || parsed.score || parsed['评分']) || 75 : 75,
-    overallJudgement,
-    sectionOrderSuggestions: pick('order'),
-    experienceSelectionSuggestions: pick('selection'),
-    missingContentSuggestions: pick('missing'),
-    riskWarnings
-  };
-};
-
 const normalizeStructureAnalysis = (
   parsed: JsonRecord | null,
   snapshot: ResumeContentSnapshot,
@@ -572,8 +347,7 @@ const evaluationJsonRequestOptions: AIRequestOptions = {
 const structureJsonRequestOptions: AIRequestOptions = {
   ...jsonRequestOptions,
   temperature: 0,
-  max_tokens: 1200,
-  timeoutMs: 35000
+  max_tokens: 2600
 };
 
 const limitText = (value: unknown, maxLength = 900): string => {
@@ -779,45 +553,6 @@ const buildSnapshotSummary = (snapshot: ResumeContentSnapshot, targetPosition?: 
     summary: limitText(snapshot.summary, 800)
   };
 };
-
-const buildStructureSnapshotSummary = (snapshot: ResumeContentSnapshot, targetPosition?: string) => ({
-  targetPosition: resolveTargetPosition(snapshot, targetPosition),
-  sectionOverview: {
-    educationCount: snapshot.education.length,
-    workExperienceCount: snapshot.workExperience.length,
-    projectCount: snapshot.projects.length,
-    skillCount: snapshot.skills.length,
-    honorCount: snapshot.honors.length,
-    hasSummary: Boolean(snapshot.summary?.trim())
-  },
-  education: snapshot.education.slice(0, 3).map(item => ({
-    school: item.school,
-    degree: item.degree,
-    major: item.major
-  })),
-  workExperience: snapshot.workExperience.slice(0, 5).map((item, index) => ({
-    index: index + 1,
-    company: item.company,
-    position: item.position,
-    keyContent: limitText(item.description, 240)
-  })),
-  projects: snapshot.projects.slice(0, 5).map((item, index) => ({
-    index: index + 1,
-    projectName: item.projectName,
-    role: item.role,
-    briefIntroduction: limitText(item.briefIntroduction, 160),
-    keyContent: limitText(item.description, 240)
-  })),
-  skills: snapshot.skills
-    .map(item => item.skillName)
-    .filter(Boolean)
-    .slice(0, 20),
-  honors: snapshot.honors.slice(0, 5).map(item => ({
-    honorName: item.honorName,
-    description: limitText(item.description, 160)
-  })),
-  summary: limitText(snapshot.summary, 280)
-});
 
 const buildPolishableTargets = (snapshot: ResumeContentSnapshot): PolishableTarget[] => {
   const targets: PolishableTarget[] = [];
@@ -1192,46 +927,110 @@ export const analyzeResumeStructure = async (
   onStream?: StreamHandler,
   options: AITaskOptions = {}
 ): Promise<ResumeStructureAnalysis> => {
-  const targetPosition = resolveTargetPosition(snapshot, options.targetPosition);
-  if (!targetPosition) {
-    throw new Error('请先填写目标岗位方向，再生成岗位结构建议');
-  }
+  const targetPosition = resolveTargetPosition(snapshot, options.targetPosition) || '目标岗位未填写';
   const response = await runJsonTask({
     task: 'analyze-resume-structure',
     schema: {
       targetPosition: 'string',
       structureScore: 'number 0-100',
-      overallJudgement: 'string, no more than 80 Chinese characters',
-      adviceItems: [
+      overallJudgement: 'string, one paragraph',
+      sectionOrderSuggestions: [
         {
-          category: 'order | selection | missing | risk',
+          relatedSection: 'overall | personalInfo | education | projects | workExperience | skills | honors | summary',
+          priority: 'high | medium | low',
+          title: 'string',
+          problem: 'string',
+          advice: 'string'
+        }
+      ],
+      experienceSelectionSuggestions: [
+        {
+          relatedSection: 'projects | workExperience | honors | summary | overall',
+          priority: 'high | medium | low',
+          title: 'string',
+          problem: 'string',
+          advice: 'string'
+        }
+      ],
+      missingContentSuggestions: [
+        {
           relatedSection: 'projects | workExperience | skills | honors | summary | overall',
           priority: 'high | medium | low',
-          title: 'string, no more than 12 Chinese characters',
-          problem: 'string, no more than 40 Chinese characters',
-          advice: 'string, no more than 70 Chinese characters'
+          title: 'string',
+          problem: 'string',
+          advice: 'string'
         }
-      ]
+      ],
+      riskWarnings: ['string']
     },
     requirements: [
       '这是简历整体结构诊断，不要润色具体句子，不要返回可写回 operation。',
       '围绕 targetPosition 判断模块顺序、经历取舍、内容补充和风险，不要编造用户没有提供的新经历。',
-      '只返回一个 adviceItems 数组，不要返回 sectionOrderSuggestions、experienceSelectionSuggestions、missingContentSuggestions。',
-      'adviceItems 总数 4 到 6 条：order 至少 1 条，selection 至少 1 条，missing 至少 1 条，risk 最多 1 条。',
       '建议必须具体可执行，例如保留哪类经历、弱化哪类经历、是否补充项目结果、是否调整模块顺序。',
-      '所有中文文本保持短句，避免长段解释。',
-      '只输出合法 JSON，不要 Markdown，不要额外解释，JSON 字段名必须严格符合 schema。'
+      '如果目标岗位未填写，请按当前简历最可能的求职方向给出保守建议，并提示用户补充目标岗位。',
+      '每类建议最多 4 条，riskWarnings 最多 4 条，中文输出，JSON 字段名必须严格符合 schema。'
     ],
     targetPosition,
-    snapshot: buildStructureSnapshotSummary(snapshot, targetPosition)
+    snapshot: buildSnapshotSummary(snapshot, targetPosition)
   }, onStream, structureJsonRequestOptions);
 
-  const normalized =
-    normalizeFlatStructureAnalysis(response.parsed, snapshot, targetPosition) ||
-    normalizeStructureAnalysis(response.parsed, snapshot, targetPosition) ||
-    normalizeStructureAnalysisFromAiText(response.rawText, response.parsed, snapshot, targetPosition);
+  const normalized = normalizeStructureAnalysis(response.parsed, snapshot, targetPosition);
   if (normalized) return normalized;
-  throw new Error('模型返回的岗位结构建议格式异常，请稍后重试或缩短简历内容');
+
+  const repaired = await runJsonTask({
+    task: 'repair-structure-analysis-json',
+    schema: {
+      targetPosition: 'string',
+      structureScore: 'number 0-100',
+      overallJudgement: 'string',
+      sectionOrderSuggestions: [
+        {
+          relatedSection: 'overall | personalInfo | education | projects | workExperience | skills | honors | summary',
+          priority: 'high | medium | low',
+          title: 'string',
+          problem: 'string',
+          advice: 'string'
+        }
+      ],
+      experienceSelectionSuggestions: [
+        {
+          relatedSection: 'projects | workExperience | honors | summary | overall',
+          priority: 'high | medium | low',
+          title: 'string',
+          problem: 'string',
+          advice: 'string'
+        }
+      ],
+      missingContentSuggestions: [
+        {
+          relatedSection: 'projects | workExperience | skills | honors | summary | overall',
+          priority: 'high | medium | low',
+          title: 'string',
+          problem: 'string',
+          advice: 'string'
+        }
+      ],
+      riskWarnings: ['string']
+    },
+    requirements: [
+      '上一轮岗位结构建议没有生成可解析的有效 JSON，现在必须修复。',
+      '必须返回 structureScore 和至少一类建议，分数必须是数字。',
+      '只输出合法 JSON，不要 Markdown，不要额外解释。'
+    ],
+    targetPosition,
+    rawResponse: limitText(response.rawText, 1600),
+    snapshot: buildSnapshotSummary(snapshot, targetPosition)
+  }, onStream, structureJsonRequestOptions);
+
+  const repairedStructure = normalizeStructureAnalysis(
+    validateParsedResult(repaired.parsed, repaired.rawText, '岗位结构建议修复'),
+    snapshot,
+    targetPosition
+  );
+  if (!repairedStructure) {
+    throw new Error('AI 未返回可解析的岗位结构建议');
+  }
+  return repairedStructure;
 };
 
 export const evaluateResume = async (
