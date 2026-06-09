@@ -415,9 +415,11 @@
 <script setup lang="ts">
 import { computed, defineComponent, h, ref, watch } from 'vue';
 import { message } from 'ant-design-vue';
+import { useRouter } from 'vue-router';
 import { useResumeStore } from '../../../store';
 import { analyzeResumeStructure, batchPolishResume, evaluateResume } from '../../../services/aiPolishService';
 import { getActivePromptSet } from '../../../services/promptSets';
+import { ensureApiConfigured } from '../../../utils/aiConfigGuard';
 import type {
   BatchPolishResult,
   BatchPolishMode,
@@ -430,6 +432,7 @@ import type {
 } from '../../../types/resume';
 
 const resumeStore = useResumeStore();
+const router = useRouter();
 const evaluating = ref(false);
 const batchPolishing = ref(false);
 const structureAnalyzing = ref(false);
@@ -986,6 +989,7 @@ const copyStructureReport = async () => {
 };
 
 const handleEvaluate = async () => {
+  if (!ensureApiConfigured(router)) return;
   const snapshot = resumeStore.getResumeSnapshot();
   const snapshotKey = createSnapshotCacheKey(snapshot);
   const cachedEvaluation = evaluationCache.get(snapshotKey);
@@ -1019,6 +1023,7 @@ const handleEvaluate = async () => {
 };
 
 const handleStructureAnalyze = async () => {
+  if (!ensureApiConfigured(router)) return;
   const snapshot = resumeStore.getResumeSnapshot();
   const snapshotKey = createSnapshotCacheKey(snapshot);
   if (structureResult.value && structureCacheKey.value === snapshotKey) {
@@ -1044,6 +1049,7 @@ const handleStructureAnalyze = async () => {
 };
 
 const handleBatchPolish = async () => {
+  if (!ensureApiConfigured(router)) return;
   const snapshot = resumeStore.getResumeSnapshot();
   const snapshotKey = createSnapshotCacheKey(snapshot);
   const activeStructureAdvice = structureCacheKey.value === snapshotKey ? structureResult.value : null;

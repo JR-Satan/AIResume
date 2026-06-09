@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { computed, defineComponent, h, ref } from "vue";
 import { message } from "ant-design-vue";
+import { useRouter } from "vue-router";
 import { sendToQwenAIDialogue } from "../../../api/qwenAPI";
 import { polishExperienceStar } from "../../../services/aiPolishService";
 import { useResumeStore } from "../../../store";
+import { ensureApiConfigured } from "../../../utils/aiConfigGuard";
 import type { AIDialogue, DialogueHistory } from "../../../types/aiDialogue";
 import type { ResumeContentSnapshot, TextGradOptimizationTrace } from "../../../types/resume";
 
 const resumeStore = useResumeStore();
+const router = useRouter();
 const personalInfo = computed(() => resumeStore.personalInfo);
 const props = defineProps({
   description: String,
@@ -220,6 +223,7 @@ const diffHint = computed(() => {
 
 const handleAiEnhance = async (prompt: string, isExtend: boolean) => {
   if (!prompt || prompt.length < 5) return;
+  if (!ensureApiConfigured(router)) return;
   AIextent.value = isExtend;
   loading.value = true;
   requestFailed.value = false;
