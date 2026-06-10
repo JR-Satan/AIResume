@@ -526,21 +526,21 @@ export async function evaluateInterviewSession(
   features: ResumeFeatures,
   job: JobProfile
 ): Promise<InterviewEvaluation> {
-  // 先检查所有回答的有效性
-  const validPairs = qaPairs.filter(({ answer }) => {
-    const check = checkAnswerValidity(answer.trim());
-    return check.valid;
-  });
+  const answerChecks = qaPairs.map(pair => ({
+    pair,
+    check: checkAnswerValidity(pair.answer.trim())
+  }));
+  const validPairs = answerChecks.filter(item => item.check.valid).map(item => item.pair);
   const fallbackAnalyses = qaPairs.map(pair => buildFallbackQuestionAnalysis(pair, features, job));
 
   if (!validPairs.length) {
-    const invalidEvaluation = buildInvalidEvaluation('所有回答均无效，无法评估。请围绕面试问题给出完整的文字回答。');
+    const invalidEvaluation = buildInvalidEvaluation('所有回答均为拒答、无实质内容或过于简短，无法形成有效评分。');
     invalidEvaluation.questionAnalyses = fallbackAnalyses;
     return invalidEvaluation;
   }
 
   const fallback = mergeEvaluations(
-    validPairs.map(({ question, answer }) => fallbackEvaluation(question, answer, features, job))
+    qaPairs.map(({ question, answer }) => fallbackEvaluation(question, answer, features, job))
   );
   fallback.questionAnalyses = fallbackAnalyses;
 
@@ -552,14 +552,18 @@ export async function evaluateInterviewSession(
 
   if (!response.success || !response.data?.scores) return fallback;
 
-  const llmScores = normalizeScores(response.data.scores, fallback.scores);
+  const validLlmScores = normalizeScores(response.data.scores, fallback.scores);
+  const llmScores = applyInvalidAnswerPenalty(validLlmScores, validPairs.length, qaPairs.length);
   const llmTotal = averageScore(llmScores);
+  const invalidCount = qaPairs.length - validPairs.length;
 
   return {
     scores: llmScores,
     totalScore: llmTotal,
-    summary: normalizeSummary(response.data.summary, fallback.summary),
-    strengths: response.data.strengths?.length ? response.data.strengths.slice(0, 4) : fallback.strengths,
+    summary: invalidCount
+      ? `${normalizeSummary(response.data.summary, fallback.summary)} 其中 ${invalidCount} 道题未提供有效回答，已按 0 分计入综合评分。`
+      : normalizeSummary(response.data.summary, fallback.summary),
+    strengths: normalizeSessionStrengths(response.data.strengths, fallback.strengths),
     improvements: response.data.improvements?.length ? response.data.improvements.slice(0, 4) : fallback.improvements,
     suggestedScript: response.data.suggestedScript || response.data.suggested_script || fallback.suggestedScript,
     questionAnalyses: normalizeQuestionAnalyses(
@@ -576,11 +580,22 @@ function checkAnswerValidity(text: string): { valid: boolean; evaluation?: Inter
   const length = text.length;
   const hasChinese = /[\u4e00-\u9fa5]/.test(text);
   const hasLetters = /[a-zA-Z]{2,}/.test(text);
+  const compactText = text.toLowerCase().replace(/[\s.,，。!！?？、；;:'"“”‘’()（）]/g, '');
+  const refusalPattern = /^(这个问题|这道题|这题|我|抱歉|对不起|确实|真的|实在|目前|暂时)*(不知道|不清楚|不了解|不懂|不会|没做过|没有做过|无法回答|答不上来|忘了|想不起来|跳过|放弃|无可奉告|不太清楚|不太了解|不太会|不太懂)(这个问题|这道题|这题|怎么回答|如何回答|该怎么回答|应该怎么回答|了|啊|呀|吧|呢)*$/;
+  const englishRefusalPattern = /^(i(dk|dontknow)|idontknow|noidea|pass|skip|notsure|cannotanswer|cantanswer)$/;
+  const isRefusal = compactText.length <= 40
+    && (refusalPattern.test(compactText) || englishRefusalPattern.test(compactText));
 
   // 纯数字/符号（如 "1"、"123"、"456"）
   const strippedText = text.replace(/[\s.,，。、+\-*/%=()（）\d]/g, '');
   const isPureNumberOrSymbol = strippedText.length < 3;
 
+  if (isRefusal) {
+    return {
+      valid: false,
+      evaluation: buildInvalidEvaluation('该回答属于明确拒答或表示不了解，未提供可评分的信息。')
+    };
+  }
   if (isPureNumberOrSymbol && !hasChinese && !hasLetters) {
     return { valid: false, evaluation: buildInvalidEvaluation('回答内容无效（纯数字或符号），无法评估。请围绕面试问题给出完整的文字回答。') };
   }
@@ -609,6 +624,7 @@ function buildEvaluationSystemPrompt(): string {
 
 【无效输入判定 - 必须严格遵守】
 如果回答是以下情况，所有维度必须给0分或1分，summary写"回答无效，无法评估"：
+- 明确拒答或表示不了解，如“不知道”“不会”“不清楚”“没做过”“无法回答” → 所有维度0分，strengths必须为空数组
 - 纯数字（如"1"、"123"、"456"）→ 所有维度0分
 - 纯符号或乱码 → 所有维度0分
 - 与面试问题完全无关的内容 → 所有维度1分
@@ -672,7 +688,7 @@ function buildSessionEvaluationSystemPrompt(): string {
   return `你是一位严格但友好的中文面试评估官。请基于整场模拟面试的所有问答，给出综合评分和详细反馈。
 
 【无效输入判定】
-如果某道题的回答是纯数字（如"1"、"123"）、纯符号、或不足20字，该题不计入有效评估。
+明确拒答或表示不了解（如“不知道”“不会”“不清楚”“没做过”“无法回答”）、纯数字、纯符号或不足10字的回答均为无效回答。无效回答按0分计入整场综合评分，不能提炼任何亮点。
 
 【评分维度】（每个维度1-5分，使用0.5步长）
 - 专业能力：技术深度、知识广度、实践能力、与岗位匹配度
@@ -764,11 +780,20 @@ export function mergeEvaluations(evaluations: InterviewEvaluation[]): InterviewE
   })) as Record<InterviewDimension, number>;
 
   const total = averageScore(scores);
+  const invalidCount = evaluations.filter(item => item.totalScore === 0 && item.strengths.length === 0).length;
+  const performance = total >= 4
+    ? '整体表现良好'
+    : total >= 3
+      ? '整体表现一般'
+      : total >= 2
+        ? '整体表现偏弱'
+        : '整体有效信息不足';
+  const invalidNote = invalidCount ? `，其中 ${invalidCount} 道回答无效并按 0 分计入` : '';
 
   return {
     scores,
     totalScore: total,
-    summary: `综合评分 ${total}/5。整体回答基本贴合岗位，建议进一步增强细节和结果表达。`,
+    summary: `综合评分 ${total}/5。${performance}${invalidNote}。建议补充与问题直接相关的经历、行动和结果。`,
     strengths: unique(evaluations.flatMap(item => item.strengths)).slice(0, 4),
     improvements: unique(evaluations.flatMap(item => item.improvements)).slice(0, 4)
   };
@@ -805,6 +830,9 @@ function fallbackEvaluation(
   job: JobProfile
 ): InterviewEvaluation {
   const text = answer.trim();
+  const validityCheck = checkAnswerValidity(text);
+  if (!validityCheck.valid) return validityCheck.evaluation!;
+
   const length = text.length;
 
   const hasChinese = /[\u4e00-\u9fa5]/.test(text);
@@ -894,7 +922,19 @@ function buildFallbackQuestionAnalysis(
   features: ResumeFeatures,
   job: JobProfile
 ): InterviewQuestionAnalysis {
+  const validityCheck = checkAnswerValidity(answer.trim());
   const evaluation = fallbackEvaluation(question, answer, features, job);
+
+  if (!validityCheck.valid) {
+    return {
+      questionId: question.id,
+      score: 0,
+      analysis: validityCheck.evaluation?.summary || '该回答未提供可评分的信息。',
+      strengths: [],
+      improvements: evaluation.improvements.slice(0, 2)
+    };
+  }
+
   return {
     questionId: question.id,
     score: evaluation.totalScore,
@@ -912,11 +952,20 @@ function normalizeQuestionAnalyses(
   fallback: InterviewQuestionAnalysis[]
 ): InterviewQuestionAnalysis[] {
   const normalizedItems = Array.isArray(items) ? items : [];
-  return qaPairs.map(({ question }, index) => {
-    const item = normalizedItems.find(candidate => Number(candidate.questionId ?? candidate.question_id) === question.id)
-      || normalizedItems[index];
+  let validItemIndex = 0;
+
+  return qaPairs.map(({ question, answer }, index) => {
     const localFallback = fallback[index];
-    if (!item || !localFallback) return localFallback;
+    if (!localFallback) return undefined;
+
+    if (!checkAnswerValidity(answer.trim()).valid) {
+      return localFallback;
+    }
+
+    const item = normalizedItems.find(candidate => Number(candidate.questionId ?? candidate.question_id) === question.id)
+      || normalizedItems[validItemIndex];
+    validItemIndex += 1;
+    if (!item) return localFallback;
 
     return {
       questionId: question.id,
@@ -928,6 +977,25 @@ function normalizeQuestionAnalyses(
       improvements: normalizeAnalysisList(item.improvements, localFallback.improvements)
     };
   }).filter((item): item is InterviewQuestionAnalysis => Boolean(item));
+}
+
+function applyInvalidAnswerPenalty(
+  scores: Record<InterviewDimension, number>,
+  validCount: number,
+  totalCount: number
+): Record<InterviewDimension, number> {
+  if (totalCount <= 0 || validCount >= totalCount) return scores;
+  const validRatio = validCount / totalCount;
+
+  return Object.fromEntries(INTERVIEW_DIMENSIONS.map(dimension => [
+    dimension,
+    Math.round(scores[dimension] * validRatio * 2) / 2
+  ])) as Record<InterviewDimension, number>;
+}
+
+function normalizeSessionStrengths(value: unknown, fallback: string[]): string[] {
+  if (!Array.isArray(value)) return fallback;
+  return unique(value.map(item => String(item).trim()).filter(Boolean)).slice(0, 4);
 }
 
 function normalizeQuestionScore(value: unknown, fallback: number): number {

@@ -76,7 +76,10 @@ export function extractResumeFeatures(snapshot: ResumeContentSnapshot): ResumeFe
   };
 }
 
-export async function extractResumeFeaturesWithLlm(snapshot: ResumeContentSnapshot): Promise<ResumeFeatures> {
+export async function extractResumeFeaturesWithLlm(
+  snapshot: ResumeContentSnapshot,
+  onLlmError?: (error: string) => void
+): Promise<ResumeFeatures> {
   const fallback = extractResumeFeatures(snapshot);
   const response = await callInterviewLlmForJson<ResumeFeaturesPayload>({
     systemPrompt: 'You are a Chinese resume analysis expert. Extract structured resume features for job recommendation.',
@@ -93,7 +96,10 @@ export async function extractResumeFeaturesWithLlm(snapshot: ResumeContentSnapsh
     temperature: 0.1,
   });
 
-  if (!response.success || !response.data) return fallback;
+  if (!response.success || !response.data) {
+    onLlmError?.(response.error || 'INVALID_FEATURE_RESPONSE');
+    return fallback;
+  }
   const data = response.data;
 
   return {

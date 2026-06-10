@@ -25,7 +25,8 @@ export function recommendJobs(features: ResumeFeatures, jobs: JobProfile[] = JOB
 export async function recommendJobsWithLlm(
   features: ResumeFeatures,
   jobs: JobProfile[] = JOB_DATABASE,
-  topK = 5
+  topK = 5,
+  onLlmError?: (error: string) => void
 ): Promise<JobRecommendation[]> {
   const fallback = recommendJobs(features, jobs, topK);
   const response = await callInterviewLlmForJson<JobRecommendationPayload>({
@@ -51,7 +52,12 @@ export async function recommendJobsWithLlm(
     .sort((left, right) => right.score - left.score)
     .slice(0, topK);
 
-  return recommendations?.length ? recommendations : fallback;
+  if (!recommendations?.length) {
+    onLlmError?.(response.error || 'INVALID_RECOMMENDATION_RESPONSE');
+    return fallback;
+  }
+
+  return recommendations;
 }
 
 export function matchJob(features: ResumeFeatures, job: JobProfile): JobRecommendation {

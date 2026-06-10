@@ -4,6 +4,7 @@ export { JOB_DATABASE } from './jobDatabase';
 export {
   INTERVIEW_DIMENSIONS,
   generateInterviewQuestions,
+  fallbackQuestions,
   evaluateInterviewAnswer,
   evaluateInterviewSession,
   mergeEvaluations
