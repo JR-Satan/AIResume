@@ -14,6 +14,7 @@ export {
 } from './useSettingsStore';
 export { useUserStore } from './useUserStore';
 export { useInterviewHistoryStore } from './useInterviewHistoryStore';
+export { useResumeImportBus, importWarnings } from '../composables/useResumeImportBus';
 
 
 const pinia = createPinia();

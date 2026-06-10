@@ -46,5 +46,8 @@ export default defineConfig(({ mode }) => {
     worker: {
       format: 'es',
     },
+    optimizeDeps: {
+      include: ['pdfjs-dist'],
+    },
   };
 })

@@ -1,7 +1,7 @@
 // src/store/useResumeStore.ts
 import { defineStore } from 'pinia';
 import { resumeTemplate } from '../data/resumeDataTemplate.ts';
-import { normalizeSectionOrder } from '../constants/sectionOrder';
+import { DEFAULT_SECTION_ORDER, normalizeSectionOrder } from '../constants/sectionOrder';
 import { message } from 'ant-design-vue';
 import { useUserStore } from './useUserStore';
 // 定义类型
@@ -11,6 +11,14 @@ import type {
   WorkExperience, ResumeSetting, SectionKey,
   ResumeContentSnapshot, PolishOperation
 } from '../types/resume';
+import type {
+  FieldMeta,
+  FieldWarning,
+  ImportOptions,
+  ImportResult,
+  ParsedResumePayload,
+} from '../types/resumeImport';
+import { fieldMetaToWarnings, enrichWarningsWithStoreItemIds } from '../services/parser/schemaValidator';
 import { saveHistory } from '../services/archiveService';
 import type { HistoryVersion, ResumeSnapshot } from '../services/archiveService';
 
@@ -237,6 +245,81 @@ export const useResumeStore = defineStore('resume', {
         summary: this.summary,
         sectionOrder: this.sectionOrder
       });
+    },
+
+    assignIds<T extends { id: number }>(items: Omit<T, 'id'>[]): T[] {
+      this.initializeCurrentId();
+      return items.map(item => ({ ...item, id: this.currentId++ } as T));
+    },
+
+    importParsedResume(
+      parsed: ParsedResumePayload,
+      options: ImportOptions = {},
+      fieldMeta?: FieldMeta[]
+    ): ImportResult {
+      const {
+        mode = 'replace',
+        persist = true,
+      } = options;
+
+      const savedSetting = { ...this.resumeSetting };
+
+      if (mode === 'replace') {
+        const template = JSON.parse(JSON.stringify(resumeTemplate));
+        this.personalInfo = { ...template.personalInfo, ...parsed.personalInfo, avatar: this.personalInfo.avatar || '' };
+        this.education = this.assignIds<Education>(parsed.education);
+        this.workExperience = this.assignIds<WorkExperience>(parsed.workExperience);
+        this.projects = this.assignIds<Project>(parsed.projects);
+        this.skills = this.assignIds<Skill>(parsed.skills);
+        this.honors = this.assignIds<Honor>(parsed.honors);
+        this.summary = parsed.summary ?? '';
+        this.sectionOrder = normalizeSectionOrder(parsed.sectionOrder ?? DEFAULT_SECTION_ORDER);
+      } else {
+        this.personalInfo = {
+          ...this.personalInfo,
+          ...Object.fromEntries(
+            Object.entries(parsed.personalInfo).filter(([, value]) => value !== undefined && value !== '')
+          ),
+        } as PersonalInfo;
+        this.education = [...this.education, ...this.assignIds<Education>(parsed.education)];
+        this.workExperience = [...this.workExperience, ...this.assignIds<WorkExperience>(parsed.workExperience)];
+        this.projects = [...this.projects, ...this.assignIds<Project>(parsed.projects)];
+        this.skills = [...this.skills, ...this.assignIds<Skill>(parsed.skills)];
+        this.honors = [...this.honors, ...this.assignIds<Honor>(parsed.honors)];
+        if (parsed.summary) this.summary = parsed.summary;
+        if (parsed.sectionOrder) {
+          this.sectionOrder = normalizeSectionOrder(parsed.sectionOrder);
+        }
+      }
+
+      this.resumeSetting = savedSetting;
+      this.isFirstVisit = false;
+      this.isHistoryMode = false;
+
+      const warnings: FieldWarning[] = fieldMeta
+        ? enrichWarningsWithStoreItemIds(
+            fieldMetaToWarnings(fieldMeta),
+            this.getResumeSnapshot()
+          )
+        : [];
+
+      if (persist) {
+        this.saveToLocalStorage();
+      }
+
+      message.success('简历导入成功！');
+
+      return {
+        success: true,
+        stats: {
+          education: parsed.education.length,
+          workExperience: parsed.workExperience.length,
+          projects: parsed.projects.length,
+          skills: parsed.skills.length,
+          honors: parsed.honors.length,
+        },
+        warnings,
+      };
     },
 
     getFieldValue(fieldPath: string): unknown {

@@ -29,7 +29,7 @@
           placeholder="请输入 API Key"
         />
         <p class="help">
-          API Key 仅保留在当前页面会话中，重新打开网站后需要再次填写，不会写入持久化存储。
+          API Key 会保存在当前浏览器本地，用于简历 AI 润色、智能导入、岗位推荐和面试功能。
         </p>
       </div>
 
@@ -44,6 +44,36 @@
           支持 DeepSeek、阿里云百炼等 OpenAI 兼容接口。本地开发也可以填写
           <code>/deepseek-api/chat/completions</code>
           使用项目自带代理。
+        </p>
+      </div>
+
+      <a-divider />
+
+      <h2 class="section-title">简历导入 OCR（可选）</h2>
+      <p class="subtips">
+        智能导入支持 JPG、PNG、PDF 简历识别。默认使用本地 Tesseract，无需额外 API。
+      </p>
+
+      <div class="input-group">
+        <label>图片文字识别方式</label>
+        <a-radio-group v-model:value="settingsStore.ocrEngine">
+          <a-radio value="tesseract">本地 Tesseract（免费，无需 API）</a-radio>
+          <a-radio value="vision">大模型视觉识别（效果更好，需 API Key）</a-radio>
+        </a-radio-group>
+        <p class="help">
+          选择大模型视觉识别时，将使用下方视觉模型识别简历图片或 PDF 扫描件中的文字；识别失败会自动回退到 Tesseract。
+        </p>
+      </div>
+
+      <div v-if="settingsStore.ocrEngine === 'vision'" class="input-group">
+        <label for="vision-model">视觉 OCR 模型</label>
+        <a-input
+          id="vision-model"
+          v-model:value="settingsStore.visionModelName"
+          placeholder="例如 qwen-vl-max"
+        />
+        <p class="help">
+          阿里云百炼常用：<code>qwen-vl-max</code>、<code>qwen-vl-plus</code>。该模型仅用于图片文字识别。
         </p>
       </div>
 

@@ -51,7 +51,11 @@ watch(
         colorPrimary: settingsStore.theme,
       },
     }">
-      <router-view />
+      <router-view v-slot="{ Component }">
+        <keep-alive include="aiDeep">
+          <component :is="Component" />
+        </keep-alive>
+      </router-view>
     </a-config-provider>
     <ThemeSwitcher v-if="!isAuthPage" />
   </template>

@@ -7,6 +7,7 @@
 
 import { defineStore } from 'pinia';
 import type { InterviewDimension, InterviewEvaluation } from '@/types/interviewJobs';
+import { useUserStore } from './useUserStore';
 
 export interface InterviewRecord {
   id: string;
@@ -23,33 +24,72 @@ export interface InterviewRecord {
   }>;
 }
 
+const resolveHistoryUsername = (username?: string | null): string => {
+  const normalizedUsername = username?.trim();
+  if (normalizedUsername) return normalizedUsername;
+
+  const userStore = useUserStore();
+  return userStore.currentUser?.username?.trim() || 'guest';
+};
+
 export const useInterviewHistoryStore = defineStore('interviewHistory', {
   state: () => ({
+    // records 保留为旧版本迁移入口；新数据统一写入 recordsByUser。
     records: [] as InterviewRecord[],
+    recordsByUser: {} as Record<string, InterviewRecord[]>,
   }),
   getters: {
-    latest: (state) => state.records[0] ?? null,
-    byId: (state) => (id: string) => state.records.find((r) => r.id === id) ?? null,
+    latest: (state): InterviewRecord | null => {
+      const owner = resolveHistoryUsername();
+      return state.recordsByUser[owner]?.[0] ?? null;
+    },
+    byId: (state) => {
+      return (id: string, username?: string | null) =>
+        (state.recordsByUser[resolveHistoryUsername(username)] ?? [])
+          .find((record: InterviewRecord) => record.id === id) ?? null;
+    },
   },
   actions: {
-    add(record: Omit<InterviewRecord, 'id' | 'timestamp'>) {
+    migrateLegacyRecords(username?: string | null) {
+      if (this.records.length === 0) return;
+
+      const owner = resolveHistoryUsername(username);
+      const current = this.recordsByUser[owner] ?? [];
+      const mergedMap = new Map<string, InterviewRecord>();
+      [...this.records, ...current].forEach((record) => {
+        mergedMap.set(record.id, record);
+      });
+
+      this.recordsByUser[owner] = Array.from(mergedMap.values())
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, 20);
+      this.records = [];
+    },
+    getRecords(username?: string | null): InterviewRecord[] {
+      const owner = resolveHistoryUsername(username);
+      return this.recordsByUser[owner] ?? [];
+    },
+    add(record: Omit<InterviewRecord, 'id' | 'timestamp'>, username?: string | null) {
+      this.migrateLegacyRecords(username);
+      const owner = resolveHistoryUsername(username);
       const newRecord: InterviewRecord = {
         ...record,
         id: `iv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
         timestamp: Date.now(),
       };
-      this.records.unshift(newRecord);  // 最新的放最前面
-      // 限制最多 20 条,避免 localStorage 爆
-      if (this.records.length > 20) {
-        this.records = this.records.slice(0, 20);
-      }
+      const records = [newRecord, ...(this.recordsByUser[owner] ?? [])].slice(0, 20);
+      this.recordsByUser[owner] = records;
       return newRecord;
     },
-    remove(id: string) {
-      this.records = this.records.filter((r) => r.id !== id);
+    remove(id: string, username?: string | null) {
+      this.migrateLegacyRecords(username);
+      const owner = resolveHistoryUsername(username);
+      this.recordsByUser[owner] = (this.recordsByUser[owner] ?? []).filter((record) => record.id !== id);
     },
-    clear() {
-      this.records = [];
+    clear(username?: string | null) {
+      this.migrateLegacyRecords(username);
+      const owner = resolveHistoryUsername(username);
+      this.recordsByUser[owner] = [];
     },
   },
   persist: true,

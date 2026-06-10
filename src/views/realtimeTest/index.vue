@@ -11,7 +11,7 @@
             </p>
           </div>
           <a-button size="small" @click="showHistoryDrawer = true">
-            面试历史（{{ historyStore.records.length }}）
+            面试历史（{{ interviewHistoryRecords.length }}）
           </a-button>
         </div>
       </template>
@@ -64,7 +64,7 @@
 
     <InterviewHistoryDrawer
       :open="showHistoryDrawer"
-      :records="historyStore.records"
+      :records="interviewHistoryRecords"
       @close="showHistoryDrawer = false"
       @view="handleViewHistory"
       @delete="handleDeleteHistory"
@@ -74,12 +74,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { message } from 'ant-design-vue';
 import {
   useInterviewHistoryStore,
   useResumeStore,
   useSettingsStore,
+  useUserStore,
 } from '@/store';
 import type { InterviewRecord } from '@/store/useInterviewHistoryStore';
 import {
@@ -105,9 +106,16 @@ import InterviewHistoryDrawer from './components/InterviewHistoryDrawer.vue';
 const settings = useSettingsStore();
 const resumeStore = useResumeStore();
 const historyStore = useInterviewHistoryStore();
+const userStore = useUserStore();
 
 const hasGeneralLlmConfig = computed(() => Boolean(settings.aliApiKey && settings.aliApiUrl));
 const browserVoiceCapability = computed(() => getVoiceInterviewCapability());
+const currentUsername = computed(() => userStore.currentUser?.username?.trim() || null);
+const interviewHistoryRecords = computed(() => historyStore.getRecords(currentUsername.value));
+
+watch(currentUsername, (username) => {
+  historyStore.migrateLegacyRecords(username);
+}, { immediate: true });
 
 const isInterviewProviderReady = computed(() => {
   return hasGeneralLlmConfig.value
@@ -212,7 +220,7 @@ function attachOrchestratorListeners(instance: InterviewOrchestratorLike) {
         improvements: result.improvements,
       },
       answers: result.answers,
-    });
+    }, currentUsername.value);
 
     message.success('语音面试已完成，结果已保存到历史记录。');
   }));
@@ -304,12 +312,12 @@ function handleViewHistory(record: InterviewRecord) {
 }
 
 function handleDeleteHistory(id: string) {
-  historyStore.remove(id);
+  historyStore.remove(id, currentUsername.value);
   message.success('已删除该条面试记录。');
 }
 
 function handleClearAllHistory() {
-  historyStore.clear();
+  historyStore.clear(currentUsername.value);
   message.success('面试历史已清空。');
 }
 

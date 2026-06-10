@@ -90,7 +90,6 @@ export function buildZhipuRealtimeWsUrl(
   return `${normalizedBase}?Authorization=${encodeURIComponent(apiKey || '')}`;
 }
 
-removeLegacyPersistedApiKeys();
 normalizePersistedSettings();
 
 export const useSettingsStore = defineStore(
@@ -108,6 +107,8 @@ export const useSettingsStore = defineStore(
     const zhipuRealtimeUrl = ref<string>(DEFAULT_ZHIPU_REALTIME_URL);
     const voiceInterviewProvider = ref<VoiceInterviewProvider>(DEFAULT_VOICE_INTERVIEW_PROVIDER);
     const basicSpeechRate = ref<number>(DEFAULT_BASIC_SPEECH_RATE);
+    const ocrEngine = ref<'tesseract' | 'vision'>('tesseract');
+    const visionModelName = ref<string>('qwen-vl-max');
 
     const toggleTheme = () => {
       isDark.value = !isDark.value;
@@ -162,6 +163,8 @@ export const useSettingsStore = defineStore(
       modelName,
       voiceInterviewProvider,
       basicSpeechRate,
+      ocrEngine,
+      visionModelName,
       zhipuApiKey,
       zhipuModel,
       zhipuVoice,
@@ -173,10 +176,14 @@ export const useSettingsStore = defineStore(
       pick: [
         'isDark',
         'theme',
+        'aliApiKey',
         'aliApiUrl',
         'modelName',
         'voiceInterviewProvider',
         'basicSpeechRate',
+        'ocrEngine',
+        'visionModelName',
+        'zhipuApiKey',
         'zhipuModel',
         'zhipuVoice',
         'zhipuRealtimeUrl',
@@ -184,24 +191,6 @@ export const useSettingsStore = defineStore(
     },
   }
 );
-
-function removeLegacyPersistedApiKeys() {
-  const persistedSettings = localStorage.getItem('settings');
-  if (!persistedSettings) return;
-
-  try {
-    const settings = JSON.parse(persistedSettings) as Record<string, unknown>;
-    const hasAliApiKey = Object.prototype.hasOwnProperty.call(settings, 'aliApiKey');
-    const hasZhipuApiKey = Object.prototype.hasOwnProperty.call(settings, 'zhipuApiKey');
-    if (!hasAliApiKey && !hasZhipuApiKey) return;
-
-    delete settings.aliApiKey;
-    delete settings.zhipuApiKey;
-    localStorage.setItem('settings', JSON.stringify(settings));
-  } catch {
-    // Keep unrelated settings untouched if historical data cannot be parsed.
-  }
-}
 
 function normalizePersistedSettings() {
   const persistedSettings = localStorage.getItem('settings');

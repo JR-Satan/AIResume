@@ -37,6 +37,12 @@
           导出JSON
         </a-button>
 
+        <!-- 智能导入 -->
+        <a-button type="primary" :disabled="historyOpen" @click="router.push('/import')">
+          <cloud-upload-outlined />
+          智能导入
+        </a-button>
+
         <!-- 导入按钮 -->
         <a-upload v-model:fileList="fileList" :beforeUpload="handleFileUpload" :showUploadList="false"
           accept="application/json" :disabled="historyOpen">
@@ -70,11 +76,13 @@ import resumePreview from './components/resumePreview.vue';
 import historyPanel from './components/historyPanel.vue';
 import ResumeAIPanel from './components/ResumeAIPanel.vue';
 import { useResumeStore } from "../../store/useResumeStore";
-import { UploadOutlined, HistoryOutlined, SaveOutlined } from '@ant-design/icons-vue';
+import { UploadOutlined, CloudUploadOutlined, HistoryOutlined, SaveOutlined } from '@ant-design/icons-vue';
 import { message } from "ant-design-vue";
 import type { UploadProps } from "ant-design-vue";
 import { ref, onUnmounted } from 'vue';
+import { useRouter } from 'vue-router';
 const resumeStore = useResumeStore();
+const router = useRouter();
 const fileList = ref<UploadProps["fileList"]>([]);
 
 // ========== 历史版本面板状态 ==========

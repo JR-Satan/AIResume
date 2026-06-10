@@ -6,9 +6,17 @@
             <SvgIcon iconName="resume" />
             简历制作
           </router-link></li>
+        <li><router-link to="/import">
+            <UploadOutlined style="margin-right: 4px" />
+            智能导入
+          </router-link></li>
         <li ref="templateStore"><router-link to="/template">
             <SvgIcon iconName="templateStore" />
             模板市场
+          </router-link></li>
+        <li><router-link to="/aiDeep">
+            <SvgIcon iconName="ai" />
+            AI深度交流
           </router-link></li>
         <li><router-link to="/interview-jobs">
             <SvgIcon iconName="ai" />
@@ -48,6 +56,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
+import { UploadOutlined } from '@ant-design/icons-vue';
 import SvgIcon from '../SvgIcon.vue';
 import { useResumeStore } from "../../store/useResumeStore";
 import { useUserStore } from "../../store/useUserStore";
