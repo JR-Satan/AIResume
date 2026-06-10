@@ -26,13 +26,7 @@ const routes: Array<RouteRecordRaw> = [
     path: '/setting',
     name: 'setting',
     component: () => import('@/views/setting/index.vue'),
-    meta: { title: 'AI简历 - 网站配置' }
-  },
-  {
-    path: '/aiDeep',
-    name: 'aiDeep',
-    component: () => import('@/views/aiDeep/index.vue'),
-    meta: { title: 'AI简历 - AI深度交流', keepAlive: true }
+    meta: { title: 'AI简历 - API配置' }
   },
   {
     path: '/auth',
@@ -45,6 +39,22 @@ const routes: Array<RouteRecordRaw> = [
     name: 'profile',
     component: () => import('@/views/profile/index.vue'),
     meta: { title: 'AI简历 - 个人中心' }
+  },
+  {
+    path: '/interview-jobs',
+    name: 'interviewJobs',
+    component: () => import('@/views/interviewJobs/index.vue'),
+    meta: { title: 'AI简历 - 岗位推荐与文本面试' }
+  },
+  {
+    path: '/voice-interview',
+    name: 'voiceInterview',
+    component: () => import('@/views/realtimeTest/index.vue'),
+    meta: { title: 'AI简历 - 语音面试' }
+  },
+  {
+    path: '/realtime-test',
+    redirect: '/voice-interview'
   },
   {
     path: '/:pathMatch(.*)*',

@@ -3,8 +3,17 @@ import { type App } from 'vue';
 
 // 统一导出所有 Store 模块
 export { useResumeStore } from './useResumeStore';
-export { useSettingsStore } from './useSettingsStore';
+export {
+  buildZhipuRealtimeWsUrl,
+  sanitizeModelName,
+  useSettingsStore,
+  sanitizeBasicSpeechRate,
+  sanitizeVoiceInterviewProvider,
+  sanitizeZhipuRealtimeModel,
+  sanitizeZhipuRealtimeUrl,
+} from './useSettingsStore';
 export { useUserStore } from './useUserStore';
+export { useInterviewHistoryStore } from './useInterviewHistoryStore';
 
 
 const pinia = createPinia();

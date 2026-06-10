@@ -10,13 +10,17 @@
             <SvgIcon iconName="templateStore" />
             模板市场
           </router-link></li>
-        <li ref="setting"><router-link to="/aiDeep">
+        <li><router-link to="/interview-jobs">
             <SvgIcon iconName="ai" />
-            AI深度交流
+            岗位面试
+          </router-link></li>
+        <li><router-link to="/voice-interview">
+            <SvgIcon iconName="ai" />
+            语音面试
           </router-link></li>
         <li ref="setting"><router-link to="/setting">
             <SvgIcon iconName="setting" />
-            网站配置
+            API配置
           </router-link></li>
 
         <li><router-link to="/resumeDesign">简历模板设计</router-link></li>
@@ -62,8 +66,8 @@ const avatarText = computed(() =>
 
 const tourSteps: TourProps['steps'] = [
   {
-    title: "网站配置",
-    description: "请先进入网站配置，完善基本信息（否则无法使用大模型润色！）",
+    title: "API配置",
+    description: "请先进入 API 配置，完善大模型调用信息。",
     target: () => setting.value,
   },
   {
@@ -108,6 +112,7 @@ onMounted(() => {
   justify-content: center;
   align-items: center;
   position: relative;
+  padding: 0 150px 0 12px;
 }
 
 /* 登录入口推到整行最右侧*/
@@ -121,7 +126,7 @@ onMounted(() => {
   color: white;
   text-align: center;
   font-size: 17px;
-  padding: 17px 16px;
+  padding: 17px 12px;
   text-decoration: none;
   transition: all 0.22s;
 }

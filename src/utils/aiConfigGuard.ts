@@ -16,7 +16,7 @@ export const ensureApiConfigured = (router?: Router): boolean => {
 
   Modal.error({
     title: '未配置 API Key',
-    content: '使用 AI 评分、润色或结构诊断前，请先到“网站配置”页填写 API Key，并确认 API URL 和模型名称。',
+    content: '使用 AI 评分、润色、结构诊断或模拟面试前，请先到“API配置”页填写 API Key，并确认 API URL 和模型名称。',
     okText: '去配置',
     centered: true,
     onOk: () => {
