@@ -9,7 +9,6 @@ const createSnapshot = (overrides: Partial<ResumeContentSnapshot> = {}): ResumeC
     email: 'student@example.com',
     university: '某某大学',
     politicalStatus: '共青团员',
-    website: '',
     avatar: '',
     major: '软件工程',
     applicationPosition: '前端开发工程师',

@@ -76,10 +76,6 @@ const getTemplateImage = (template: Template): string => {
             </div>
             <div class="template-info">
               <div class="template-title">{{ template.name }}</div>
-              <div class="template-author">
-                <!-- 链接 -->
-                作者：<a :href="String(template.link || '')" target="_blank">{{ template.author }}</a>
-              </div>
               <p class="template-description">{{ template.description }}</p>
               <a-button :type="currentTemplate === template.id ? 'text' : 'primary'"
                 :class="{ 'selected-button': currentTemplate === template.id }"

@@ -17,12 +17,6 @@ const routes: Array<RouteRecordRaw> = [
     meta: { title: 'AI简历 - 简历导入' }
   },
   {
-    path: '/resumeDesign',
-    name: 'resumeDesign',
-    component: () => import('@/views/resumeDesign/index.vue'),
-    meta: { title: 'AI简历 - 简历设计' }
-  },
-  {
     path: '/template',
     name: 'template',
     component: () => import('@/views/template/index.vue'),
@@ -33,12 +27,6 @@ const routes: Array<RouteRecordRaw> = [
     name: 'setting',
     component: () => import('@/views/setting/index.vue'),
     meta: { title: 'AI简历 - API配置' }
-  },
-  {
-    path: '/aiDeep',
-    name: 'aiDeep',
-    component: () => import('@/views/aiDeep/index.vue'),
-    meta: { title: 'AI简历 - AI深度交流', keepAlive: true }
   },
   {
     path: '/auth',

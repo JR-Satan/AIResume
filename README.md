@@ -1,11 +1,5 @@
 # AIResume
 
-[![GitHub Stars](https://img.shields.io/github/stars/weidong-repo/AIResume)](https://github.com/weidong-repo/AIResume/stargazers)
-[![GitHub Forks](https://img.shields.io/github/forks/weidong-repo/AIResume)](https://github.com/weidong-repo/AIResume/network/members)
-[![GitHub Issues](https://img.shields.io/github/issues/weidong-repo/AIResume)](https://github.com/weidong-repo/AIResume/issues)
-[![GitHub Solved Issues](https://img.shields.io/github/issues-closed/weidong-repo/AIResume)](https://github.com/weidong-repo/AIResume/issues?q=is%3Aissue+is%3Aclosed)
-[![GitHub Last Commit](https://img.shields.io/github/last-commit/weidong-repo/AIResume)](https://github.com/weidong-repo/AIResume/commits/main)
-
 ## 📌 项目介绍
 
 **AIResume** 是一个开源的简历制作平台，帮助用户轻松创建专业简历，融合 AI 技术，辅助用户润色简历。我们欢迎对前端技术感兴趣的朋友参与 **`模板开发`**！
@@ -41,10 +35,9 @@ AI润色
 
 - **Node.js**：18+
 
-### 2️⃣ 克隆并安装依赖
+### 2️⃣ 安装依赖
 
 ```bash
-git clone https://github.com/weidong-repo/AIResume.git
 cd AIResume
 npm install
 ```
@@ -54,12 +47,6 @@ npm install
 ```bash
 npm run dev
 ```
-
-## 🔥想自己部署同样的项目？
-
-点击此处链接，[发行版本](https://github.com/weidong-repo/AIResume/releases)
-找到最新版本的release.zip
-然后把release.zip解压部署到您网站根目录上，访问域名即可
 
 ## 🔥欢迎有前端能力的朋友开发简历模板加入项目
 
@@ -104,8 +91,6 @@ https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions
 - ✅ 简历多模板，支持热插拔切换
 - ✅ 多套简历模板，支持前端开发者共创
 - ✅ 简历撰写的时候，AI可以进行润色
-- ✅ AI简历深挖 利用ai 基于单个项目或者经历的长对话对简历进行深度优化
-- ✅ AI模拟面试 针对单一项目或者经历对用户进行面试拷打
 - ✅ 本地登录/注册与基础用户信息管理（纯前端本地存储，详见 [docs/LOGIN_FEATURE.md](docs/LOGIN_FEATURE.md)）
 
 细节功能：
@@ -130,19 +115,10 @@ https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions
 
 - ✅ 模板市场展示
 
-- ✅ 模板信息展示作者的昵称以及网站
-
 ------
 
 ## 📝 待实现功能
 
 - [ ] **AI 面试官**（大模型读取简历，进行实时对话 / 语音通话）
-- [ ] **可视化简历设计**（支持非前端开发者用户拖拽设计简历）
 - [ ] **简历布局调整**（左侧拖拽调整右侧内容块顺序）
 - [ ] **数据隐藏功能**（支持隐藏部分信息，但数据仍保留）
-
-🔥 **欢迎 Star & Fork 本项目，一起完善 AIResume！**
-
-# Stars历史记录
-
-[![Star History Chart](https://api.star-history.com/svg?repos=weidong-repo/AIResume&type=Date)](https://www.star-history.com/#weidong-repo/AIResume&Date)

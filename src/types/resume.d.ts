@@ -6,7 +6,6 @@ export interface PersonalInfo {
   email: string;
   university: string;
   politicalStatus: string;
-  website: string;
   avatar: string;
   major: string;
   applicationPosition: string;

@@ -12,7 +12,7 @@ JSON 结构：
 {
   "personalInfo": {
     "name": "", "gender": "", "phone": "", "email": "",
-    "university": "", "politicalStatus": "", "website": "",
+    "university": "", "politicalStatus": "",
     "major": "", "age": "", "applicationPosition": ""
   },
   "education": [{ "school": "", "degree": "", "major": "", "startDate": "", "endDate": "" }],

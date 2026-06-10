@@ -4,6 +4,4 @@ export interface Template {
   description?: string;
   folderPath?: String;
   thumbnail?: String;
-  author: String;
-  link: String;
 }

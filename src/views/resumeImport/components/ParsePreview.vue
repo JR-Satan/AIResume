@@ -261,7 +261,6 @@ const personalFields: { key: keyof PersonalInfo; label: string }[] = [
   { key: 'age', label: '年龄' },
   { key: 'applicationPosition', label: '求职意向' },
   { key: 'politicalStatus', label: '政治面貌' },
-  { key: 'website', label: '个人网站' },
 ];
 
 const metaList = computed(() => localFieldMeta.value);

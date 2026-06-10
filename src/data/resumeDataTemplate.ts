@@ -9,7 +9,6 @@ export const resumeTemplate = {
     email: '',            // 电子邮箱
     university: '',        // 所在大学
     politicalStatus: '',  // 政治面貌
-    website: '',           // 个人网站
     avatar: '',            // 头像
     major: '',             // 专业
     age: '',               // 年龄

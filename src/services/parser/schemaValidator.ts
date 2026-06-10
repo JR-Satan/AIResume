@@ -70,7 +70,6 @@ export function normalizeParsedResume(raw: unknown): ParsedResumePayload {
     email: asString(pi.email ?? data.email),
     university: asString(pi.university ?? data.university),
     politicalStatus: asString(pi.politicalStatus),
-    website: asString(pi.website),
     avatar: '',
     major: asString(pi.major ?? data.major),
     age: asString(pi.age),

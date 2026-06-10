@@ -14,10 +14,6 @@
             <SvgIcon iconName="templateStore" />
             模板市场
           </router-link></li>
-        <li><router-link to="/aiDeep">
-            <SvgIcon iconName="ai" />
-            AI深度交流
-          </router-link></li>
         <li><router-link to="/interview-jobs">
             <SvgIcon iconName="ai" />
             岗位面试
@@ -30,8 +26,6 @@
             <SvgIcon iconName="setting" />
             API配置
           </router-link></li>
-
-        <li><router-link to="/resumeDesign">简历模板设计</router-link></li>
 
         <!-- 登录入口（最右侧 + 圆形头像标记）：未登录跳登录页，已登录跳个人中心 -->
         <li class="user-entry">

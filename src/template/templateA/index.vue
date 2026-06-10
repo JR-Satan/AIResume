@@ -42,12 +42,6 @@
             <span class="value">{{ resume.personalInfo.major }}</span>
           </div>
         </div>
-        <div class="detail-row" v-if="resume.personalInfo.website">
-          <div class="detail-item">
-            <span class="label">网站：</span>
-            <a :href="resume.personalInfo.website" target="_blank" class="value">{{ resume.personalInfo.website }}</a>
-          </div>
-        </div>
       </div>
       <div class="profile-image" v-if="resume.personalInfo.avatar">
         <img :src="resume.personalInfo.avatar" alt="个人照片">
