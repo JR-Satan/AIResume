@@ -60,7 +60,8 @@ const resolveFieldPath = (root: Record<string, unknown>, fieldPath: string) => {
 };
 
 /**
- * 编写者：侯锦瑞
+ * 所属小组：3-3 用户模板管理组
+ * 编写者：侯锦瑞、张楚唯
  * 功能：解析历史版本归属用户。
  * 设计意图：历史版本必须按 username 隔离；当调用方没有显式传入用户名时，从登录 Store 兜底获取。
  * 返回约定：未登录或用户名为空时返回 null，由保存逻辑放弃写入，避免产生无法归属的历史记录。
@@ -158,7 +159,8 @@ export const useResumeStore = defineStore('resume', {
       message.success('数据已清空');
     },
     /**
-     * 编写者：侯锦瑞
+     * 所属小组：3-3 用户模板管理组
+     * 编写者：侯锦瑞、张楚唯
      * 功能：加载演示简历数据，并在覆盖现有内容前按需保存历史快照。
      * 触发场景：用户点击“预览填充”时形成一个关键提交点，后续可从历史版本回退。
      * 保护规则：历史预览模式下不保存新快照，防止只读预览内容反向污染当前用户数据。
@@ -180,7 +182,8 @@ export const useResumeStore = defineStore('resume', {
     },
 
     /**
-     * 编写者：侯锦瑞
+     * 所属小组：3-3 用户模板管理组
+     * 编写者：侯锦瑞、张楚唯、潘家杰
      * 功能：把当前简历状态整理成历史版本快照。
      * 数据边界：快照只保存简历内容、模块顺序和模板设置，不保存运行时状态、用户密码或临时 UI 状态。
      * 隔离策略：写入时同时使用 username 和 currentTemplate，保证同一用户不同模板的历史记录互不混淆。
@@ -213,7 +216,8 @@ export const useResumeStore = defineStore('resume', {
     },
 
     /**
-     * 编写者：侯锦瑞
+     * 所属小组：3-3 用户模板管理组
+     * 编写者：侯锦瑞、张楚唯
      * 功能：进入历史版本只读预览模式。
      * 设计意图：预览历史版本需要临时替换 Store 中的简历数据，但不能覆盖当前正在编辑的版本。
      * 恢复策略：进入前把当前状态写入专用 backup key，退出预览时再恢复，保证预览和编辑状态隔离。
@@ -233,7 +237,8 @@ export const useResumeStore = defineStore('resume', {
     },
 
     /**
-     * 编写者：侯锦瑞
+     * 所属小组：3-3 用户模板管理组
+     * 编写者：侯锦瑞、张楚唯
      * 功能：退出历史版本预览。
      * 异常处理：backup 缺失或解析失败时至少清除 isHistoryMode，避免页面停留在只读状态。
      * 维护说明：恢复后重新初始化 currentId，防止后续新增条目的 id 与历史快照中的旧 id 冲突。
@@ -423,6 +428,7 @@ export const useResumeStore = defineStore('resume', {
       this.saveToLocalStorage();
     },
     /**
+     * 所属小组：3-3 用户模板管理组
      * 编写者：侯锦瑞、王杰
      * 功能：统一更新简历展示与导出相关设置。
      * 设计意图：模板 ID、主题色、间距和 DPI 都属于预览/导出配置，集中写入 resumeSetting 便于模板切换和 PDF 导出复用。
