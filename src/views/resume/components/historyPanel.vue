@@ -1,6 +1,8 @@
 <!--
   编写者：侯锦瑞
-  功能：历史版本管理面板，负责按当前用户/模板展示版本列表、预览历史快照、恢复和删除版本。
+  模块职责：提供历史版本侧栏，完成版本列表、只读预览、恢复和删除操作。
+  关键设计：查询维度固定为“当前登录用户名 + 当前模板 ID”，保证同一浏览器中不同用户只能看到自己的历史记录。
+  交互约束：进入历史预览时通过 resumeStore 切换到只读状态；返回列表或关闭面板时必须恢复编辑中的当前简历。
 -->
 <template>
   <div class="history-panel">
@@ -110,7 +112,6 @@ const props = defineProps<{
 const resumeStore = useResumeStore();
 const userStore = useUserStore();
 
-// ========== 版本列表 ==========
 const historyList = ref<HistoryVersion[]>([]);
 const previewingVersion = ref<HistoryVersion | null>(null);
 
@@ -118,7 +119,10 @@ const currentTemplateId = computed(() => resumeStore.resumeSetting.currentTempla
 const currentUsername = computed(() => userStore.currentUser?.username || null);
 const currentUserId = computed(() => userStore.currentUser?.id || null);
 
-// 加载历史版本列表
+/**
+ * 加载当前用户和当前模板下的历史版本。
+ * 兼容策略：加载前尝试把旧 userId 维度的历史数据迁移到 username 维度，避免升级后历史记录丢失。
+ */
 const loadHistoryList = () => {
   const templateId = currentTemplateId.value;
   const username = currentUsername.value?.trim();
@@ -131,7 +135,7 @@ const loadHistoryList = () => {
   historyList.value = listHistory(templateId, username);
 };
 
-// 监听面板打开状态
+// 面板关闭时若仍处于历史预览，必须退出只读模式，避免影响主编辑区后续保存。
 watch(
   () => props.open,
   (isOpen) => {
@@ -161,7 +165,10 @@ watch(currentUsername, () => {
   }
 });
 
-// ========== 预览逻辑 ==========
+/**
+ * 进入历史版本预览。
+ * Store 会临时加载快照，本组件只负责切换 UI 状态和重算预览边界。
+ */
 const previewHistoryVersion = (version: HistoryVersion) => {
   resumeStore.enterHistoryPreview(version.snapshot);
   previewingVersion.value = version;
@@ -174,11 +181,11 @@ const previewHistoryVersion = (version: HistoryVersion) => {
 const goBackToList = () => {
   resumeStore.exitHistoryPreview();
   previewingVersion.value = null;
-  // 返回列表后重新加载（以防有变化）
+  // 返回列表后重新加载，保证恢复或删除后的列表状态一致。
   loadHistoryList();
 };
 
-// ========== 恢复版本 ==========
+// 恢复会覆盖当前编辑内容，因此必须二次确认。
 const confirmRestore = () => {
   if (!previewingVersion.value) return;
   Modal.confirm({
@@ -193,11 +200,11 @@ const confirmRestore = () => {
 };
 
 const restoreVersion = (version: HistoryVersion) => {
-  // 退出历史预览模式（恢复原始数据）
+  // 先退出历史预览，避免把只读快照的运行时状态一起保存。
   resumeStore.exitHistoryPreview();
   previewingVersion.value = null;
 
-  // 将快照数据写入 store
+  // 只恢复简历业务字段，随后重新计算 currentId，保证恢复后仍可继续编辑。
   const snapshot = version.snapshot;
   resumeStore.personalInfo = JSON.parse(JSON.stringify(snapshot.personalInfo));
   resumeStore.education = JSON.parse(JSON.stringify(snapshot.education));
@@ -213,11 +220,10 @@ const restoreVersion = (version: HistoryVersion) => {
   resumeStore.saveToLocalStorage();
   message.success('已恢复到该历史版本');
 
-  // 刷新列表
   loadHistoryList();
 };
 
-// ========== 删除版本 ==========
+// 删除历史版本不可撤销，保留确认弹窗防止误删。
 const confirmDelete = (version: HistoryVersion) => {
   Modal.confirm({
     title: '删除版本',
@@ -245,7 +251,6 @@ const getVersionSubtitle = (version: HistoryVersion): string => {
   return version.title?.trim() ? formatTime(version.timestamp) : '点击预览此版本';
 };
 
-// ========== 时间格式化 ==========
 const formatTime = (timestamp: number): string => {
   const date = new Date(timestamp);
   const year = date.getFullYear();
@@ -257,14 +262,16 @@ const formatTime = (timestamp: number): string => {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
-// ========== 模板渲染（复用 resumePreview 的逻辑） ==========
+// 历史版本必须按快照里的模板设置渲染，不能使用当前编辑页的模板设置。
 const templateModules = import.meta.glob('../../../template/**/index.vue');
 
-// 异步加载模板组件
 const loadedComponent = ref<any>(null);
 const colorShades = ref(generateColorShades(resumeStore.resumeSetting.themeColor1));
 
-// 加载模板
+/**
+ * 加载历史快照对应的模板组件。
+ * 失败时只记录错误，不阻断历史面板其它操作，便于用户返回列表或删除异常版本。
+ */
 const loadTemplateForPreview = async () => {
   const settings = previewingVersion.value
     ? previewingVersion.value.snapshot.resumeSetting
@@ -291,14 +298,13 @@ const loadTemplateForPreview = async () => {
   }
 };
 
-// 当预览版本变化时重新加载模板
+// 切换预览版本后重新加载模板，确保模板 ID、主题色和快照内容保持一致。
 watch(previewingVersion, (v) => {
   if (v) {
     nextTick(() => loadTemplateForPreview());
   }
 });
 
-// ========== 预览拖拽和缩放 ==========
 const previewRef = ref<HTMLElement | null>(null);
 
 const state = reactive({

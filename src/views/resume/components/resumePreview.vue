@@ -1,6 +1,8 @@
 <!--
   编写者：侯锦瑞、王杰
-  功能：简历预览与模板设置模块，负责动态加载当前模板、保存模板设置并提供 DPI 高保真 PDF 导出。
+  模块职责：提供简历实时预览、模板外观设置和高保真 PDF 导出能力。
+  关键设计：预览页只根据 resumeSetting 动态加载模板组件，简历内容仍来自统一 Store，避免模板切换造成数据分叉。
+  导出策略：PDF 导出前使用临时 DOM 按当前模板重新渲染，并按用户选择的 DPI 换算 html2canvas scale，保证导出清晰度可控。
 -->
 <template>
 
@@ -89,7 +91,8 @@ import html2pdf from "html2pdf.js";
 import { createApp } from 'vue';
 import { storeToRefs } from 'pinia'
 import { message } from "ant-design-vue";
-// 主题色部分功能
+
+// 设置项通过 computed 双向映射到 Store，保证弹窗修改后可立即预览并持久化。
 const resumeStore = useResumeStore();
 const { resumeSetting } = storeToRefs(resumeStore);
 const themeColor1 = computed({
@@ -114,40 +117,34 @@ const paragraphSpacing = computed({
   get: () => resumeSetting.value.paragraphSpacing,
   set: (val) => resumeStore.updateResumeSetting({ paragraphSpacing: val })
 })
-// 当前选中的模板ID
+// currentTemplate 是模板市场、预览页和历史快照共同使用的模板标识。
 const currentTemplate = computed({
   get: () => resumeSetting.value.currentTemplate,
   set: (val) => resumeStore.updateResumeSetting({ currentTemplate: val })
 })
-// 左右页边距
 const padding_left_right = computed({
   get: () => resumeSetting.value.padding_left_right,
   set: (val) => resumeStore.updateResumeSetting({ padding_left_right: val })
 })
-//  上下页边距
 const padding_top_bottom = computed({
   get: () => resumeSetting.value.padding_top_bottom,
   set: (val) => resumeStore.updateResumeSetting({ padding_top_bottom: val })
 })
-// 生成的色阶对象
+// 模板只接收色阶对象，不直接依赖原始主题色，便于不同模板复用同一套配色计算。
 const colorShades = ref(generateColorShades(resumeSetting.value.themeColor1));
 
-// 多模板切换部分功能
-// 动态导入所有模板组件
+// 使用 glob 建立模板目录到组件的映射，新增模板时只要维护 templates.json 和模板目录即可。
 const templateModules = import.meta.glob('../../../template/**/index.vue');
-// 模板列表
 const templates = ref<Template[]>([]);
-// 当前渲染的组件
 const currentComponent = ref();
 
 onMounted(async () => {
   try {
     templates.value = await getTemplates();
-    // 如果有已选中的模板，则恢复
     if (currentTemplate.value) {
       loadCurrentTemplate();
     } else {
-      // 如果没有已选中的模板，则默认选中第一个
+      // 没有历史选择时默认使用第一套模板，保证预览区首次进入可渲染。
       currentTemplate.value = templates.value[0].id;
       loadCurrentTemplate();
     }
@@ -156,12 +153,11 @@ onMounted(async () => {
   }
 });
 
-// 监听当前简历模板的变化，以加载对应的组件
+// 监听模板 ID 变化，保持设置弹窗、模板市场和预览区域同步。
 watch(currentTemplate, (newId) => {
   handleTemplateChange(newId);
 });
 
-// 处理模板切换
 const handleTemplateChange = (id: String | null) => {
   if (!id) return;
   const selectedTemplate = templates.value.find(t => t.id === id);
@@ -171,7 +167,10 @@ const handleTemplateChange = (id: String | null) => {
   }
 };
 
-// 加载当前选中的模板组件
+/**
+ * 加载当前模板组件。
+ * 回退策略：配置中 folderPath 或组件文件缺失时回退到第一套模板，避免页面因单个模板配置错误而白屏。
+ */
 const loadCurrentTemplate = () => {
   const selectedTemplate = templates.value.find(t => t.id === currentTemplate.value);
   if (selectedTemplate?.folderPath) {
@@ -194,7 +193,6 @@ const loadCurrentTemplate = () => {
   }
 };
 
-// 弹框
 let open = ref(false);
 const resumeSettingClick = () => {
   open.value = true;
@@ -205,30 +203,33 @@ const resumeSettingClickOK = () => {
   message.success('设置成功');
 }
 
-// PDF导出DPI选项
+// DPI 只影响导出清晰度，不改变页面预览缩放比例。
 const dpiOptions = [72, 100, 150, 300, 400, 600];
 const dpiModalOpen = ref(false);
 const selectedDpi = ref(150);
 
-// 导出简历为 PDF——先弹窗选DPI再导出
+// 先让用户选择 DPI，再进入实际导出流程。
 const exportToPDF = () => {
   dpiModalOpen.value = true;
 };
 
+/**
+ * 按当前模板和 DPI 导出 PDF。
+ * 设计意图：导出使用临时离屏容器重新渲染模板，避免把预览区拖拽/缩放 transform 带入 PDF。
+ * 清理要求：进入 html2pdf 流程后在 finally 中移除临时容器，防止多次导出后 DOM 堆积。
+ */
 const confirmExport = async () => {
   dpiModalOpen.value = false;
   const scale = selectedDpi.value / 96;
   await nextTick();
-  // 创建一个新的容器来渲染简历内容
   const tempContainer = document.createElement("div");
   tempContainer.style.position = "absolute";
-  tempContainer.style.top = "-9999px"; // 隐藏容器
+  tempContainer.style.top = "-9999px";
   document.body.appendChild(tempContainer);
 
   const content = document.createElement("div");
   content.classList.add("resume-content");
 
-  // 渲染当前模板的内容
   const selectedTemplate = templates.value.find(t => t.id === currentTemplate.value);
   if (selectedTemplate?.folderPath) {
     const importPath = `../../../template/${selectedTemplate.folderPath}/index.vue`;
@@ -239,7 +240,6 @@ const confirmExport = async () => {
       const app = createApp(Component, {
         colorShades: colorShades.value,
       });
-      // 挂载组件
       app.mount(content);
       tempContainer.appendChild(content);
       await nextTick();
@@ -251,7 +251,6 @@ const confirmExport = async () => {
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
       };
       html2pdf().from(content).set(options).save().finally(() => {
-        // 清理临时容器
         document.body.removeChild(tempContainer);
       });
     } else {
@@ -261,33 +260,30 @@ const confirmExport = async () => {
   }
 };
 
-
-// 简历预览拖拽事件功能
-// 初始化函数，在组件挂载时调用
+// 预览区拖拽/缩放仅影响屏幕查看体验，不参与 PDF 导出。
 onMounted(() => {
   updateBounds();
   window.addEventListener("resize", updateBounds);
 });
-// 获取预览容器的引用
 const resumePreview = ref<HTMLElement | null>(null);
 
-// 定义拖拽和缩放的状态
+// 拖拽缩放状态集中维护，便于统一限制边界和生成 transform 样式。
 const state = reactive({
-  scale: 0.6,           // 当前缩放比例
-  translateX: 0,      // 当前水平位移
-  translateY: 0,      // 当前垂直位移
-  dragging: false,    // 是否正在拖拽
-  startX: 0,          // 拖拽起始的鼠标X坐标
-  startY: 0,          // 拖拽起始的鼠标Y坐标
-  previewWidth: 0,    // 预览容器宽度
-  previewHeight: 0,   // 预览容器高度
-  contentWidth: 0,    // 内容宽度
-  contentHeight: 0,   // 内容高度
+  scale: 0.6,
+  translateX: 0,
+  translateY: 0,
+  dragging: false,
+  startX: 0,
+  startY: 0,
+  previewWidth: 0,
+  previewHeight: 0,
+  contentWidth: 0,
+  contentHeight: 0,
 });
 
-// 初始化预览和内容尺寸
+// DOM 尺寸变化后重新计算边界，防止窗口缩放后内容被拖到不可见区域。
 const updateBounds = async () => {
-  await nextTick(); // 确保 DOM 已更新
+  await nextTick();
   if (resumePreview.value) {
     const container = resumePreview.value;
     const content = container.querySelector(".resume-content") as HTMLElement;
@@ -302,103 +298,83 @@ const updateBounds = async () => {
   }
 };
 
-// 缩放处理函数
+// 以鼠标位置为缩放中心，减少用户放大后需要重新拖动定位的操作。
 const handleZoom = (event: WheelEvent) => {
-  const zoomSpeed = 0.1; // 缩放速度
-  const oldScale = state.scale; // 记录旧的缩放比例
+  const zoomSpeed = 0.1;
+  const oldScale = state.scale;
 
   if (event.deltaY < 0) {
-    // 放大，限制最大缩放比例为3倍
     state.scale = Math.min(state.scale + zoomSpeed, 3);
   } else {
-    // 缩小，限制最小缩放比例为0.2倍
     state.scale = Math.max(state.scale - zoomSpeed, 0.2);
   }
 
-  // 计算鼠标在容器中的位置偏移
   const rect = resumePreview.value?.getBoundingClientRect();
   if (rect) {
     const offsetX = event.clientX - rect.left - rect.width / 2 - state.translateX;
     const offsetY = event.clientY - rect.top - rect.height / 2 - state.translateY;
-    // 根据新的缩放比例调整位移，保持缩放中心在鼠标位置
     state.translateX -= (offsetX / oldScale) * (state.scale - oldScale);
     state.translateY -= (offsetY / oldScale) * (state.scale - oldScale);
   }
 
-  // 更新内容尺寸和预览尺寸
   updateBounds();
 };
 
-// 限制拖动范围，确保至少 10% 的内容在预览区域内
+// 限制拖动范围，确保至少 10% 的内容留在预览区域内，避免用户把页面拖丢。
 const limitTranslation = () => {
-  // 计算缩放后的内容尺寸
   const scaledContentWidth = state.contentWidth * state.scale;
   const scaledContentHeight = state.contentHeight * state.scale;
 
-  // 计算至少 10% 的内容需要保持可见
   const minVisibleX = scaledContentWidth * 0.1 / 2;
   const minVisibleY = scaledContentHeight * 0.1 / 2;
 
-  // 计算预览容器的边界
   const previewLeft = -state.previewWidth / 1.2 + minVisibleX;
   const previewRight = state.previewWidth / 1.2 - minVisibleX;
   const previewTop = -state.previewHeight / 1.2 + minVisibleY;
   const previewBottom = state.previewHeight / 1.2 - minVisibleY;
 
-  // 确保平移不会超过边界
   state.translateX = Math.min(previewRight, Math.max(state.translateX, previewLeft));
   state.translateY = Math.min(previewBottom, Math.max(state.translateY, previewTop));
 };
 
-// 开始拖拽
 const startDragging = (event: MouseEvent) => {
-  event.preventDefault(); // 防止选中文本等行为
+  event.preventDefault();
   state.dragging = true;
   state.startX = event.pageX - state.translateX;
   state.startY = event.pageY - state.translateY;
 
-  // 绑定全局的鼠标移动和松开事件
+  // 绑定到 document，避免鼠标移出预览区域后拖拽状态丢失。
   document.addEventListener("mousemove", onDragging);
   document.addEventListener("mouseup", stopDragging);
 };
 
-// 拖拽中
 const onDragging = (event: MouseEvent) => {
   if (state.dragging) {
-    // 更新位移
     state.translateX = event.pageX - state.startX;
     state.translateY = event.pageY - state.startY;
-    // 限制位移范围
     limitTranslation();
   }
 };
 
-// 停止拖拽
 const stopDragging = () => {
   state.dragging = false;
   limitTranslation();
-  // 移除全局的鼠标移动和松开事件
   document.removeEventListener("mousemove", onDragging);
   document.removeEventListener("mouseup", stopDragging);
 };
 
-// .resume-content 容器样式
+// 将拖拽缩放状态集中转换为样式，模板组件本身不需要感知预览交互。
 const contentStyle = computed(() => ({
-  // 应用平移和缩放
   transform: `translate(-50%, -50%) translate(${state.translateX}px, ${state.translateY}px) scale(${state.scale})`,
-  // 设置缩放中心为内容中心
   transformOrigin: "center center",
-  // 拖拽时改变鼠标样式
   cursor: state.dragging ? "grabbing" : "grab",
-  // 提升性能
   willChange: "transform",
-  // 平滑过渡效果
   transition: state.dragging ? "none" : "transform 0.2s ease",
 }));
 
 
 
-// 组件销毁前移除事件监听
+// 组件销毁前移除窗口尺寸监听，避免离开页面后仍触发预览边界重算。
 onBeforeUnmount(() => {
   window.removeEventListener("resize", updateBounds);
 });

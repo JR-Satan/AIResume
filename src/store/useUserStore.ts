@@ -1,6 +1,8 @@
 /**
  * 编写者：徐崇耀
- * 功能：封装用户登录态 Store，负责注册、登录、扫码登录、资料维护和退出登录等账号状态管理。
+ * 模块职责：维护前端运行期的用户登录态，统一承接账号密码登录、注册、扫码登录和资料更新。
+ * 关键设计：页面只读取 currentUser / isLoggedIn，不直接访问 authService 的本地用户表，降低账号逻辑耦合。
+ * 状态约束：每次认证动作成功后同步 currentUser，并将 authReady 置为 true，供强制登录路由判断页面是否可进入。
  */
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
@@ -10,12 +12,15 @@ import type { AuthResult, User, UserProfile } from '../types/user';
 export const useUserStore = defineStore(
   'user',
   () => {
-    // 当前登录用户（未登录为 null）
+    // currentUser 是页面判断用户归属和历史版本隔离的唯一前端状态来源。
     const currentUser = ref<User | null>(null);
     const authReady = ref(false);
-    // 是否已登录
     const isLoggedIn = computed(() => currentUser.value !== null);
 
+    /**
+     * 初始化登录态。
+     * 先合并初始账号，再从本地 session 解析当前用户；force 用于注册/扫码后需要重新校验的场景。
+     */
     const initAuth = async (force = false) => {
       if (authReady.value && !force) return;
       await authService.ensureUsersInitialized();
@@ -23,7 +28,7 @@ export const useUserStore = defineStore(
       authReady.value = true;
     };
 
-    // 登录
+    /** 账号密码登录成功后立即刷新 currentUser，使路由守卫和历史版本面板拿到最新用户名。 */
     const login = async (username: string, password: string): Promise<AuthResult> => {
       await authService.ensureUsersInitialized();
       const res = await authService.login(username, password);
@@ -32,7 +37,7 @@ export const useUserStore = defineStore(
       return res;
     };
 
-    // 注册（成功后自动登录）
+    /** 注册成功后沿用 authService 的自动登录结果，避免注册页和登录页维护两套状态写入逻辑。 */
     const register = async (
       username: string,
       password: string,
@@ -45,7 +50,7 @@ export const useUserStore = defineStore(
       return res;
     };
 
-    // 扫码登录（按设备版本标识，自动注册或登录）
+    /** 本机扫码登录，按设备版本标识创建或复用本地账号。 */
     const scanLogin = async (versionKey: string): Promise<AuthResult> => {
       await authService.ensureUsersInitialized();
       const res = await authService.scanLogin(versionKey);
@@ -54,7 +59,7 @@ export const useUserStore = defineStore(
       return res;
     };
 
-    // 采纳手机回传的账号并在本机登录（电脑端扫码登录）
+    /** 电脑端扫码登录收口：采纳手机确认的公开账号信息，并写入本机登录态。 */
     const adoptUser = async (user: User): Promise<AuthResult> => {
       await authService.ensureUsersInitialized();
       const res = await authService.adoptUser(user);
@@ -63,14 +68,14 @@ export const useUserStore = defineStore(
       return res;
     };
 
-    // 退出登录
+    /** 退出只清空当前登录态，保留本地账号表和各用户历史版本数据。 */
     const logout = async () => {
       await authService.logout();
       currentUser.value = null;
       authReady.value = true;
     };
 
-    // 更新基础资料
+    /** 资料更新成功后同步 currentUser，保证页面头像/昵称无需刷新即可更新。 */
     const updateProfile = async (profile: Partial<UserProfile>): Promise<AuthResult> => {
       if (!currentUser.value) return { success: false, message: '未登录' };
       const res = await authService.updateProfile(currentUser.value.id, profile);
@@ -78,7 +83,7 @@ export const useUserStore = defineStore(
       return res;
     };
 
-    // 修改密码
+    /** 修改密码不改变 currentUser 公开资料，只返回认证服务的校验结果。 */
     const changePassword = async (
       oldPassword: string,
       newPassword: string

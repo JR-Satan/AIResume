@@ -1,12 +1,10 @@
 /**
  * 编写者：徐崇耀
- * 功能：提供本地用户认证服务，负责账号初始化、密码哈希、注册登录、登录态保存和用户资料更新。
+ * 模块职责：封装本地账号体系的数据访问逻辑，供登录页和用户 Store 调用。
+ * 关键设计：账号表、密码摘要和登录态均保存在浏览器 localStorage，页面层不直接操作用户表。
+ * 安全边界：密码只保存 SHA256(password + salt) 的摘要；该方案满足课程演示，不等同于生产级后端认证。
+ * 扩展说明：如后续接入真实后端，优先替换本文件 API 内部实现，保持 Store 调用方式不变。
  */
-// 认证服务层（数据访问抽象）
-//
-// 本文件是「用户/认证」的唯一数据访问入口，当前用 localStorage 实现。
-// 将来对接真实后端时，只需把每个方法内部替换为 fetch 请求，
-// 上层（store / 页面）的调用方式无需改动 —— 这就是预留的接口层。
 import CryptoJS from 'crypto-js';
 import type { AuthResult, StoredUser, User, UserProfile } from '../types/user';
 
@@ -17,7 +15,7 @@ const SESSION_KEY = 'ai_resume_session'; // 当前登录用户 id
 // 模拟异步，便于将来无缝替换为真实网络请求
 const delay = (ms = 0) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-// 读取 / 写入用户表
+// 读取失败时返回空表，避免损坏的 localStorage 数据阻塞登录页加载。
 const readUsers = (): StoredUser[] => {
   try {
     const raw = localStorage.getItem(USERS_KEY);
@@ -47,7 +45,11 @@ const isStoredUser = (value: unknown): value is StoredUser => {
 
 let usersInitPromise: Promise<void> | null = null;
 
-// 从 public/users.json 合并初始账号。运行时新增/改密仍保存到 localStorage 的 JSON 用户表。
+/**
+ * 合并 public/users.json 中的初始账号。
+ * 设计意图：项目首次运行时可提供演示账号，同时不覆盖用户运行期注册或修改过的本地账号。
+ * 幂等策略：用 usersInitPromise 保证一次页面生命周期内只初始化一次，避免重复 fetch 和重复合并。
+ */
 export const ensureUsersInitialized = async (): Promise<void> => {
   if (usersInitPromise) return usersInitPromise;
 
@@ -84,10 +86,10 @@ export const ensureUsersInitialized = async (): Promise<void> => {
   return usersInitPromise;
 };
 
-// 生成随机盐值
+// 每个账号独立 salt，避免相同密码产生完全相同的摘要。
 const genSalt = () => CryptoJS.lib.WordArray.random(16).toString();
 
-// 密码哈希：SHA256(password + salt)，不存明文
+// 密码哈希：只保存摘要，不保存明文密码。
 const hashPassword = (password: string, salt: string) =>
   CryptoJS.SHA256(password + salt).toString();
 
@@ -95,13 +97,16 @@ const hashPassword = (password: string, salt: string) =>
 const genId = () =>
   `u_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 
-// 去除密码字段，得到对外可用的 User
+// 对外返回用户信息前移除 passwordHash 和 salt，避免页面层误用敏感字段。
 const toPublicUser = (u: StoredUser): User => {
   const { passwordHash, salt, ...pub } = u;
   return pub;
 };
 
-// 注册
+/**
+ * 注册本地账号。
+ * 业务规则：用户名去除首尾空格后必须唯一；注册成功后立即写入登录态，减少用户二次登录步骤。
+ */
 export async function register(
   username: string,
   password: string,
@@ -132,7 +137,10 @@ export async function register(
   return { success: true, message: '注册成功', user: toPublicUser(stored) };
 }
 
-// 登录
+/**
+ * 账号密码登录。
+ * 校验方式：使用提交密码和账号 salt 重新计算摘要，再与本地摘要比对。
+ */
 export async function login(username: string, password: string): Promise<AuthResult> {
   await delay();
   const name = username.trim();
@@ -145,12 +153,11 @@ export async function login(username: string, password: string): Promise<AuthRes
   return { success: true, message: '登录成功', user: toPublicUser(found) };
 }
 
-// 扫码登录（模拟）
-//
-// 以「设备版本标识」作为账号用户名，与账密登录共用同一套用户存储：
-//  - 该版本已存在账号 → 直接登录；
-//  - 首次出现的版本 → 自动注册一个账号（随机密码哈希，无明文密码），并登录。
-// 因此「一个版本 ↔ 唯一一个账号」，且数据与账密登录完全同源。
+/**
+ * 本机扫码登录入口。
+ * 设计意图：将设备版本标识映射为本地账号用户名，使扫码账号与账密账号共用用户表和历史版本隔离规则。
+ * 处理策略：已存在则直接登录；首次出现则自动创建随机密码占位账号，避免生成可被明文登录的默认密码。
+ */
 export async function scanLogin(versionKey: string): Promise<AuthResult> {
   await delay();
   const key = versionKey.trim();
@@ -181,11 +188,11 @@ export async function scanLogin(versionKey: string): Promise<AuthResult> {
   return { success: true, message: '已为该设备创建账号并登录', user: toPublicUser(stored) };
 }
 
-// 采纳手机回传的账号并在本机登录（电脑端扫码登录的最后一步）
-//
-// 手机端的账号建在手机本地，电脑本地用户表里可能没有它。
-// 这里按 username 在本机查找：有则登录该账号，无则把回传的公开信息
-// 落到本机用户表（密码字段留占位，因为本机不掌握其密码）后登录。
+/**
+ * 采纳手机端确认后的账号信息。
+ * 场景：手机和电脑 localStorage 不共享，电脑端必须把手机回传的公开用户信息同步到本机用户表后才能建立登录态。
+ * 数据边界：这里只接收公开 User 字段，密码使用随机占位摘要，扫码登录不依赖也不暴露原密码。
+ */
 export async function adoptUser(user: User): Promise<AuthResult> {
   await delay();
   if (!user || !user.username) {
@@ -215,13 +222,13 @@ export async function adoptUser(user: User): Promise<AuthResult> {
   return { success: true, message: '扫码登录成功', user: toPublicUser(stored) };
 }
 
-// 退出登录
+/** 退出登录只清除当前会话 id，不删除用户表和历史版本数据。 */
 export async function logout(): Promise<void> {
   await delay();
   localStorage.removeItem(SESSION_KEY);
 }
 
-// 获取当前登录用户（无则返回 null）
+/** 根据会话 id 解析当前用户；找不到账号时返回 null，由路由守卫重新要求登录。 */
 export async function getCurrentUser(): Promise<User | null> {
   await delay();
   const id = localStorage.getItem(SESSION_KEY);
@@ -230,7 +237,7 @@ export async function getCurrentUser(): Promise<User | null> {
   return found ? toPublicUser(found) : null;
 }
 
-// 更新基础资料（昵称 / 头像）
+/** 更新用户资料时只允许改公开资料字段，账号 id、用户名和密码摘要不在此接口修改。 */
 export async function updateProfile(
   userId: string,
   profile: Partial<UserProfile>
@@ -245,7 +252,7 @@ export async function updateProfile(
   return { success: true, message: '资料已更新', user: toPublicUser(users[idx]) };
 }
 
-// 修改密码
+/** 修改密码会重新生成 salt，降低旧摘要被复用的风险。 */
 export async function changePassword(
   userId: string,
   oldPassword: string,

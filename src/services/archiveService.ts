@@ -1,9 +1,9 @@
 /**
  * 编写者：侯锦瑞
- * 功能：按用户和模板隔离保存简历历史版本，负责历史快照、标题生成、删除清空和旧数据迁移。
+ * 模块职责：提供简历历史版本的数据访问层，向页面和 Store 屏蔽 localStorage 的存储细节。
+ * 关键设计：历史记录以“用户名 + 模板 ID”为隔离维度，避免不同账号或不同模板之间的快照互相覆盖。
+ * 维护说明：标题由前后两次快照差异自动生成，只保留核心变更摘要，避免历史列表展示过长。
  */
-// 简历历史版本存档服务
-// 使用 localStorage 按用户 + 模板隔离存储历史版本数据
 
 import type { ResumeState, SectionKey } from '../types/resume';
 
@@ -30,11 +30,10 @@ export interface HistoryVersion {
   snapshot: ResumeSnapshot;
 }
 
-// ========== 内部工具 ==========
-
 const HISTORY_PREFIX = 'ai_resume_history_';
 const MAX_VERSIONS_PER_TEMPLATE = 50;
 
+// 统一封装历史版本存储键，后续如迁移到后端，只需要保持该隔离规则不变。
 function getHistoryKey(templateId: string, username?: string | null): string {
   return `${HISTORY_PREFIX}${username?.trim() || 'guest'}_${templateId}`;
 }
@@ -87,6 +86,11 @@ function collectItemChanges<T extends { id?: number | string }>(
   return changes;
 }
 
+/**
+ * 根据新旧快照生成历史版本标题。
+ * 设计意图：用户保存时不再手动填写提交信息，系统通过模块级差异给出可读摘要。
+ * 输出规则：首次保存标为“初始版本”；超过 6 处变化时折叠为“等 N 处”，保证侧栏标题可读。
+ */
 function generateHistoryTitle(snapshot: ResumeSnapshot, previous?: ResumeSnapshot): string | undefined {
   if (!previous) return '初始版本';
 
@@ -109,9 +113,10 @@ function generateHistoryTitle(snapshot: ResumeSnapshot, previous?: ResumeSnapsho
   return `改动：${visibleChanges.join('，')}${suffix}`;
 }
 
-// ========== 公共 API ==========
-
-/** 获取某模板的全部历史版本（按时间倒序，最新在前） */
+/**
+ * 获取某用户在某模板下的全部历史版本。
+ * 返回值按时间倒序排列；localStorage 数据损坏时返回空列表，避免历史面板渲染失败。
+ */
 export function listHistory(
   templateId: string,
   username?: string | null
@@ -127,7 +132,10 @@ export function listHistory(
   }
 }
 
-/** 保存一条新的历史版本 */
+/**
+ * 保存当前简历快照。
+ * 存储策略：新版本插入列表头部，并限制每个“用户 + 模板”最多保留 50 条，防止本地存储无限增长。
+ */
 export function saveHistory(
   snapshot: ResumeSnapshot,
   templateId: string,
@@ -146,7 +154,7 @@ export function saveHistory(
 
   list.unshift(version);
 
-  // 超过上限时删除最旧的记录
+  // 控制浏览器本地存储体积，删除最旧记录不会影响当前版本预览。
   if (list.length > MAX_VERSIONS_PER_TEMPLATE) {
     list.splice(MAX_VERSIONS_PER_TEMPLATE);
   }
@@ -155,7 +163,10 @@ export function saveHistory(
   return version;
 }
 
-/** 删除指定的历史版本 */
+/**
+ * 删除指定历史版本。
+ * 返回 boolean 供 UI 层判断是否弹出成功/失败提示。
+ */
 export function deleteHistory(
   versionId: string,
   templateId: string,
@@ -171,7 +182,7 @@ export function deleteHistory(
   return true;
 }
 
-/** 清空某模板的全部历史版本 */
+/** 清空当前用户在指定模板下的历史版本，用于后续扩展批量清理入口。 */
 export function clearHistory(
   templateId: string,
   username?: string | null
@@ -180,7 +191,10 @@ export function clearHistory(
   localStorage.removeItem(key);
 }
 
-/** 将同一用户旧 owner key 下的历史版本迁移到新 owner key 下 */
+/**
+ * 将旧 owner key 下的历史版本迁移到用户名维度。
+ * 背景：早期版本曾用用户 id 或 guest 作为隔离 key；登录体系稳定后统一迁移到 username，保证新老数据可继续查看。
+ */
 export function migrateHistoryOwner(
   templateId: string,
   fromOwner?: string | null,

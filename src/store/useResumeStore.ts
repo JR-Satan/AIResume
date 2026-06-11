@@ -61,7 +61,9 @@ const resolveFieldPath = (root: Record<string, unknown>, fieldPath: string) => {
 
 /**
  * 编写者：侯锦瑞
- * 功能：解析历史版本归属用户，保证简历历史记录按登录用户名隔离展示和保存。
+ * 功能：解析历史版本归属用户。
+ * 设计意图：历史版本必须按 username 隔离；当调用方没有显式传入用户名时，从登录 Store 兜底获取。
+ * 返回约定：未登录或用户名为空时返回 null，由保存逻辑放弃写入，避免产生无法归属的历史记录。
  */
 const resolveHistoryUsername = (username?: string | null): string | null => {
   const normalizedUsername = username?.trim();
@@ -157,7 +159,9 @@ export const useResumeStore = defineStore('resume', {
     },
     /**
      * 编写者：侯锦瑞
-     * 功能：在预览填充覆盖当前简历前记录历史版本，形成可回退的关键提交点。
+     * 功能：加载演示简历数据，并在覆盖现有内容前按需保存历史快照。
+     * 触发场景：用户点击“预览填充”时形成一个关键提交点，后续可从历史版本回退。
+     * 保护规则：历史预览模式下不保存新快照，防止只读预览内容反向污染当前用户数据。
      */
     async autoFillData(options: { saveHistory?: boolean; username?: string | null } = {}) {
       try {
@@ -177,7 +181,9 @@ export const useResumeStore = defineStore('resume', {
 
     /**
      * 编写者：侯锦瑞
-     * 功能：保存当前简历为历史版本快照，并按当前用户和模板 ID 写入本地历史存档。
+     * 功能：把当前简历状态整理成历史版本快照。
+     * 数据边界：快照只保存简历内容、模块顺序和模板设置，不保存运行时状态、用户密码或临时 UI 状态。
+     * 隔离策略：写入时同时使用 username 和 currentTemplate，保证同一用户不同模板的历史记录互不混淆。
      */
     saveHistorySnapshot(username?: string | null): HistoryVersion | null {
       if (this.isHistoryMode) return null;
@@ -208,7 +214,9 @@ export const useResumeStore = defineStore('resume', {
 
     /**
      * 编写者：侯锦瑞
-     * 功能：进入历史版本只读预览模式，临时加载历史快照并备份当前编辑状态。
+     * 功能：进入历史版本只读预览模式。
+     * 设计意图：预览历史版本需要临时替换 Store 中的简历数据，但不能覆盖当前正在编辑的版本。
+     * 恢复策略：进入前把当前状态写入专用 backup key，退出预览时再恢复，保证预览和编辑状态隔离。
      */
     enterHistoryPreview(snapshot: ResumeSnapshot) {
       // 先备份当前状态到专用 localStorage key
@@ -226,7 +234,9 @@ export const useResumeStore = defineStore('resume', {
 
     /**
      * 编写者：侯锦瑞
-     * 功能：退出历史版本预览并恢复进入预览前的当前简历编辑状态。
+     * 功能：退出历史版本预览。
+     * 异常处理：backup 缺失或解析失败时至少清除 isHistoryMode，避免页面停留在只读状态。
+     * 维护说明：恢复后重新初始化 currentId，防止后续新增条目的 id 与历史快照中的旧 id 冲突。
      */
     exitHistoryPreview() {
       const backupStr = localStorage.getItem('resumeData_history_backup');
@@ -414,7 +424,9 @@ export const useResumeStore = defineStore('resume', {
     },
     /**
      * 编写者：侯锦瑞、王杰
-     * 功能：更新并持久化简历模板、主题、间距和导出 DPI 等模板/下载相关设置。
+     * 功能：统一更新简历展示与导出相关设置。
+     * 设计意图：模板 ID、主题色、间距和 DPI 都属于预览/导出配置，集中写入 resumeSetting 便于模板切换和 PDF 导出复用。
+     * 持久化规则：每次设置变更后立即写入 localStorage，刷新页面后仍能恢复用户选择。
      */
     updateResumeSetting(updatedSetting: Partial<ResumeSetting>) {
       this.resumeSetting = { ...this.resumeSetting, ...updatedSetting };

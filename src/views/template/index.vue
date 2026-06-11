@@ -1,6 +1,8 @@
 <!--
   编写者：侯锦瑞、王杰
-  功能：模板市场页面，负责读取模板配置、展示模板卡片并切换当前简历模板。
+  模块职责：展示模板市场并写入当前简历模板选择。
+  关键设计：模板元数据来自 templates.json，真正的模板组件由预览页按 folderPath 动态加载，本页只负责选择和持久化模板 ID。
+  交互说明：切换模板不会改写简历内容字段，只更新 resumeSetting.currentTemplate，避免模板切换造成用户内容丢失。
 -->
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
@@ -11,18 +13,17 @@ import type { Template } from "../../types/template";
 import { useResumeStore } from "../../store";
 import { storeToRefs } from 'pinia';
 
-// 模板列表
 const templates = ref<Template[]>([]);
 const resumeStore = useResumeStore();
 const { resumeSetting } = storeToRefs(resumeStore);
 
-// 当前选中的模板ID
+// currentTemplate 直接映射到全局 resumeSetting，保证模板市场和预览页状态一致。
 const currentTemplate = computed({
   get: () => resumeSetting.value.currentTemplate,
   set: (val) => resumeStore.updateResumeSetting({ currentTemplate: val })
 })
 
-// 获取并初始化模板列表
+// 进入页面时读取模板配置；失败只提示用户，不影响已有简历编辑数据。
 onMounted(async () => {
   try {
     templates.value = await getTemplates();
@@ -32,7 +33,7 @@ onMounted(async () => {
   }
 });
 
-// 处理模板切换
+// 模板切换只保存模板 ID，具体组件加载和样式应用交给预览页处理。
 const handleTemplateChange = (id: String | null) => {
   if (!id) return;
   const selectedTemplate = templates.value.find(t => t.id === id);
@@ -42,7 +43,7 @@ const handleTemplateChange = (id: String | null) => {
   }
 };
 
-// 计算模板图片 URL
+// 缩略图路径基于模板目录计算，避免在配置中重复维护完整资源路径。
 const getTemplateImage = (template: Template): string => {
   if (!template.folderPath || !template.thumbnail) {
     return ""; // 处理无图片情况

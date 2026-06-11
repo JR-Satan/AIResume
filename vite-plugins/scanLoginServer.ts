@@ -1,22 +1,15 @@
 /**
  * 编写者：徐崇耀、侯锦瑞
- * 功能：提供扫码登录 Vite 开发中间件，用内存会话中转手机端确认结果，实现局域网扫码登录。
+ * 模块职责：在 Vite 开发服务器上提供扫码登录中转接口，弥补纯前端项目没有后端会话服务的问题。
+ * 关键设计：用内存 Map 保存短期扫码会话，只中转手机端确认结果，不持久化账号密码或简历数据。
+ * 网络策略：当请求来自 localhost 时，优先推断局域网 IPv4 地址，确保手机扫码后访问的是电脑可达地址。
+ * 适用范围：该插件用于课程演示和局域网开发环境；生产环境应替换为真实后端会话服务。
  */
-// 扫码登录中转服务（Vite dev 中间件）
-//
-// 纯前端项目本身没有后端，手机与电脑的 localStorage 互不相通，
-// 无法实现「手机扫码 → 电脑自动登录」。本插件在 dev server 上挂一组
-// 轻量接口，用内存里的「扫码会话」做中转：
-//   1. 电脑端 create 一个会话，拿到 sessionId，把它编进二维码；
-//   2. 手机扫码打开站点，登录后 confirm，把账号信息回传到该会话；
-//   3. 电脑端轮询 poll，拿到 confirmed 的账号信息后在本地登录。
-//
-// 会话只存在内存（Map），带过期时间，无需数据库。仅用于本地/局域网演示。
 import type { Plugin } from 'vite';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { networkInterfaces } from 'node:os';
 
-// 单个扫码会话
+// 单个扫码会话只保存状态和公开用户信息，避免把敏感认证数据放入中转层。
 interface ScanSession {
   status: 'pending' | 'confirmed';
   createdAt: number;
@@ -24,10 +17,10 @@ interface ScanSession {
   user?: unknown;
 }
 
-const SESSION_TTL = 5 * 60 * 1000; // 会话有效期 5 分钟
+const SESSION_TTL = 5 * 60 * 1000; // 会话有效期 5 分钟，降低二维码被长期复用的风险。
 const sessions = new Map<string, ScanSession>();
 
-// 生成会话 id（时间戳 + 随机串，足够本地唯一）
+// 生成会话 id（时间戳 + 随机串），满足本地演示场景下的唯一性要求。
 const genSessionId = () =>
   `s_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 
@@ -40,7 +33,10 @@ const normalizeExplicitHost = (host?: string | boolean | null) => {
 const isVirtualInterface = (name: string) =>
   /vmware|virtualbox|veth|vethernet|docker|wsl|hyper-v|loopback|蓝牙/i.test(name);
 
-// 获取一个可供同局域网手机访问的 IPv4 地址
+/**
+ * 推断手机可访问的局域网 IPv4 地址。
+ * 优先级：显式环境变量 > Vite host > 非虚拟网卡；无线网卡和常见私网地址段权重更高。
+ */
 const getLanAddress = (configuredHost?: string | boolean | null) => {
   const explicitHost =
     normalizeExplicitHost(process.env.VITE_SCAN_HOST) ||
@@ -84,7 +80,7 @@ const getRequestOrigin = (req: IncomingMessage, configuredHost?: string | boolea
   return `${protocol}://${reachableHost}${port ? `:${port}` : ''}`;
 };
 
-// 清理过期会话
+// 每次扫码接口请求前清理过期会话，避免 dev server 长时间运行导致内存会话堆积。
 const sweep = () => {
   const now = Date.now();
   for (const [id, s] of sessions) {
@@ -92,7 +88,7 @@ const sweep = () => {
   }
 };
 
-// 读取请求 JSON body
+// 中转接口只需要轻量 JSON body；解析失败时返回空对象，由业务分支给出明确响应。
 const readBody = (req: IncomingMessage): Promise<any> =>
   new Promise((resolve) => {
     let raw = '';
@@ -106,7 +102,7 @@ const readBody = (req: IncomingMessage): Promise<any> =>
     });
   });
 
-// 统一 JSON 响应
+// 统一 JSON 响应格式，便于前端 scanService 只处理状态和数据。
 const sendJson = (res: ServerResponse, status: number, data: unknown) => {
   res.statusCode = status;
   res.setHeader('Content-Type', 'application/json');
