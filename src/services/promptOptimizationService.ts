@@ -1,3 +1,9 @@
+/**
+ * 3-4 大模型润色组离线提示词优化服务。
+ *
+ * 该服务用于演示和开发阶段的 Prompt TextGrad：把 PromptSet 当作可优化变量，
+ * 通过样例简历、评价器、文本梯度和优化器生成候选提示词版本。它不直接暴露给普通用户页面。
+ */
 import { sendToQwenAIDialogue, type AIRequestOptions } from '../api/qwenAPI';
 import { promptOptimizationExamples } from '../data/promptOptimizationExamples';
 import { defaultPromptSet } from './promptSets';
@@ -56,6 +62,7 @@ const completePromptDialogue = (
   messages: DialogueHistory,
   requestOptions: AIRequestOptions = promptJsonRequestOptions
 ): Promise<string> => {
+  // 提示词优化同样复用项目统一模型通道，便于沿用网站配置页中的 API Key、URL 和模型名称。
   return new Promise((resolve, reject) => {
     let latestText = '';
     let settled = false;
@@ -241,6 +248,7 @@ export const evaluatePromptSet = async (
   examples: PromptOptimizationExample[] = promptOptimizationExamples,
   options: Pick<PromptOptimizationOptions, 'maxExamples' | 'onProgress'> = {}
 ): Promise<PromptEvaluationResult[]> => {
+  // 用固定样例集评估 PromptSet，评价维度覆盖 STAR、真实性、专业度、岗位匹配和字段安全。
   const selectedExamples = examples.slice(0, options.maxExamples || examples.length);
   const results: PromptEvaluationResult[] = [];
 
@@ -257,6 +265,7 @@ const buildPromptTextualGradient = async (
   promptSet: PromptSet,
   evaluationResults: PromptEvaluationResult[]
 ): Promise<string> => {
+  // TextGrad 的“反向传播”在这里体现为自然语言批评：指出当前提示词导致输出不佳的原因。
   const gradient = await runPromptJsonTask(promptSet, {
     task: 'backward-prompt-textual-gradient',
     schema: {
@@ -325,6 +334,7 @@ const optimizePromptVariable = async (
   promptSet: PromptSet,
   textualGradient: string
 ): Promise<PromptSet> => {
+  // Optimizer 不改模型参数，只根据文本梯度生成新的候选 PromptSet，等待人工确认后再启用。
   const optimized = await runPromptJsonTask(promptSet, {
     task: 'optimizer-update-prompt-set',
     schema: {
@@ -343,6 +353,7 @@ export const optimizePromptSet = async (
   examples: PromptOptimizationExample[] = promptOptimizationExamples,
   options: PromptOptimizationOptions = {}
 ): Promise<PromptOptimizationTrace> => {
+  // 完整离线优化流程：先评分，再生成文本梯度，再生成候选提示词，必要时对候选版本复评。
   options.onProgress?.('开始评估当前 PromptSet');
   const beforeResults = await evaluatePromptSet(promptSet, examples, options);
   const scoreBefore = averageScores(beforeResults);

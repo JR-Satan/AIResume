@@ -1,3 +1,7 @@
+<!--
+  3-4 大模型润色组主工作台。
+  该组件集中展示简历质量评分、岗位结构建议、全文润色对比和 TextGrad 过程可视化。
+-->
 <template>
   <section class="ai-polish-panel">
     <div class="hero-row">
@@ -989,6 +993,7 @@ const copyStructureReport = async () => {
 };
 
 const handleEvaluate = async () => {
+  // 3-4 组质量评分入口：同一份简历命中缓存时直接复用结果，减少重复模型调用。
   if (!ensureApiConfigured(router)) return;
   const snapshot = resumeStore.getResumeSnapshot();
   const snapshotKey = createSnapshotCacheKey(snapshot);
@@ -1023,6 +1028,7 @@ const handleEvaluate = async () => {
 };
 
 const handleStructureAnalyze = async () => {
+  // 3-4 组岗位结构建议入口：只生成模块/经历层面的建议，不直接写回简历字段。
   if (!ensureApiConfigured(router)) return;
   const snapshot = resumeStore.getResumeSnapshot();
   const snapshotKey = createSnapshotCacheKey(snapshot);
@@ -1050,6 +1056,7 @@ const handleStructureAnalyze = async () => {
 };
 
 const handleBatchPolish = async () => {
+  // 3-4 组全文润色入口：结合当前结构建议和润色模式，生成待用户确认的安全修改集。
   if (!ensureApiConfigured(router)) return;
   const snapshot = resumeStore.getResumeSnapshot();
   const snapshotKey = createSnapshotCacheKey(snapshot);

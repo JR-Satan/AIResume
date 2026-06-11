@@ -1,3 +1,10 @@
+/**
+ * 3-4 大模型润色组核心服务。
+ *
+ * 本文件承接简历质量评分、岗位结构建议、单字段 STAR 润色和全文润色四类任务。
+ * 设计重点是把大模型输出限制为可解析 JSON，并通过字段白名单、oldValue 校验和 TextGrad
+ * 过程记录保证“可解释、可审核、可安全写回”。
+ */
 import { sendToQwenAIDialogue, type AIRequestOptions } from '../api/qwenAPI';
 import { getActivePromptSet } from './promptSets';
 import type { DialogueHistory } from '../types/aiDialogue';
@@ -25,6 +32,7 @@ type JsonRecord = Record<string, unknown>;
 const allowedPolishFieldPathPattern =
   /^(workExperience\[\d+\]\.description|projects\[\d+\]\.(briefIntroduction|description)|honors\[\d+\]\.description|summary)$/;
 
+// 3-4 组只允许大模型改写正文类字段，避免误改个人信息、教育经历和模板配置。
 const isAllowedPolishFieldPath = (fieldPath: string): boolean =>
   allowedPolishFieldPathPattern.test(fieldPath);
 
@@ -419,6 +427,7 @@ const completeDialogue = async (
 ): Promise<string> => {
   let lastError: Error | null = null;
 
+  // 3-4 组 AI 任务统一静默重试一次：第一次失败不打断用户流程，第二次失败才向界面返回错误。
   for (let attempt = 1; attempt <= 2; attempt += 1) {
     try {
       return await completeDialogueAttempt(
@@ -440,6 +449,7 @@ const runJsonTask = async (
   onStream?: StreamHandler,
   requestOptions: AIRequestOptions = jsonRequestOptions
 ): Promise<{ rawText: string; parsed: JsonRecord | null }> => {
+  // 3-4 组所有模型任务都先走统一 JSON 解析，再进入各任务自己的字段校验和兜底逻辑。
   const promptSet = getActivePromptSet();
   const rawText = await completeDialogue([
     { role: 'system', content: promptSet.systemPrompt },
@@ -456,6 +466,7 @@ const runTextGradOptimization = async <T>(
   config: TextGradRunConfig<T>,
   onFinalStream?: StreamHandler
 ): Promise<{ result: T; trace: TextGradOptimizationTrace }> => {
+  // 深度润色采用紧凑 TextGrad 流程：Forward 生成候选，Gradient 批评问题，Optimizer 产出最终结果。
   const promptSet = getActivePromptSet();
   const compactGradientRequirements = promptSet.contentGradientRequirements
     .filter(item => !item.includes('只输出反馈'));
@@ -555,6 +566,7 @@ const buildSnapshotSummary = (snapshot: ResumeContentSnapshot, targetPosition?: 
 };
 
 const buildPolishableTargets = (snapshot: ResumeContentSnapshot): PolishableTarget[] => {
+  // 先在前端枚举可写回目标，模型只能从这些 fieldPath 中选择，降低字段越权风险。
   const targets: PolishableTarget[] = [];
 
   snapshot.workExperience.forEach((item, index) => {
@@ -644,6 +656,7 @@ const normalizeOperationsWithMeta = (
   snapshot: ResumeContentSnapshot,
   source: string
 ): OperationNormalizationResult => {
+  // 解析模型返回的 operations 时再次校验字段路径和 oldValue，保证写回只发生在用户当前简历字段上。
   if (!Array.isArray(value)) {
     return {
       operations: [],
@@ -729,6 +742,7 @@ export const polishExperienceStar = async (
   input: PolishExperienceInput,
   onStream?: StreamHandler
 ): Promise<PolishExperienceResult> => {
+  // 字段级润色只处理用户当前选中的一个字段，适合项目经历、工作经历、荣誉描述和个人总结的局部优化。
   const promptSet = getActivePromptSet();
   const taskPrompt = promptSet.tasks.singleStarPolish;
   if (!isAllowedPolishFieldPath(input.fieldPath)) {
@@ -773,6 +787,7 @@ export const batchPolishResume = async (
   onStream?: StreamHandler,
   options: BatchPolishOptions = {}
 ): Promise<BatchPolishResult> => {
+  // 全文润色先生成可改字段清单，再让模型返回最小必要修改集，界面负责展示对比和用户确认。
   const promptSet = getActivePromptSet();
   const taskPrompt = promptSet.tasks.batchPolishResume;
   const mode: BatchPolishMode = options.mode || 'deep';
@@ -927,6 +942,7 @@ export const analyzeResumeStructure = async (
   onStream?: StreamHandler,
   options: AITaskOptions = {}
 ): Promise<ResumeStructureAnalysis> => {
+  // 岗位结构建议不直接改写简历文本，只分析模块顺序、经历取舍、缺失内容和岗位匹配风险。
   const targetPosition = resolveTargetPosition(snapshot, options.targetPosition) || '目标岗位未填写';
   const response = await runJsonTask({
     task: 'analyze-resume-structure',
@@ -1038,6 +1054,7 @@ export const evaluateResume = async (
   onStream?: StreamHandler,
   options: AITaskOptions = {}
 ): Promise<ResumeEvaluation> => {
+  // 简历评价输出四维评分和字段级建议，供用户判断当前简历质量，也可作为后续润色的参考。
   const promptSet = getActivePromptSet();
   const targetPosition = resolveTargetPosition(snapshot, options.targetPosition);
   const messages: DialogueHistory = [

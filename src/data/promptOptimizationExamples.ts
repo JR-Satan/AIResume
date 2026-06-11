@@ -1,3 +1,9 @@
+/**
+ * 3-4 大模型润色组提示词优化样例集。
+ *
+ * 这些样例覆盖单字段 STAR 润色、全文润色和质量评价等场景，用于离线验证 PromptSet
+ * 是否能稳定遵守真实性、岗位匹配、JSON 合规和字段安全要求。
+ */
 import type { PromptOptimizationExample } from '../types/promptOptimization';
 import type { ResumeContentSnapshot } from '../types/resume';
 

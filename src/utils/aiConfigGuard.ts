@@ -1,3 +1,9 @@
+/**
+ * 3-4 大模型润色组 API 配置检查工具。
+ *
+ * 质量评分、全文润色、岗位结构建议和字段级 STAR 润色在调用模型前都会先检查网站配置页
+ * 中的 API Key、API URL 和模型名称，缺失时统一弹出错误提示并引导用户去配置。
+ */
 import { Modal } from 'ant-design-vue';
 import type { Router } from 'vue-router';
 import { useSettingsStore } from '../store/useSettingsStore';

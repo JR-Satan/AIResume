@@ -1,3 +1,7 @@
+<!--
+  3-4 大模型润色组字段级润色入口。
+  该组件挂载在经历、项目、荣誉和个人总结等字段旁，负责单字段 STAR 润色、建议展示和确认写回。
+-->
 <script setup lang="ts">
 import { computed, defineComponent, h, ref } from "vue";
 import { message } from "ant-design-vue";
@@ -222,6 +226,7 @@ const diffHint = computed(() => {
 });
 
 const handleAiEnhance = async (prompt: string, isExtend: boolean) => {
+  // 3-4 组字段级 STAR 润色入口：只把当前字段和简历上下文交给模型，确认后才写回。
   if (!prompt || prompt.length < 5) return;
   if (!ensureApiConfigured(router)) return;
   AIextent.value = isExtend;

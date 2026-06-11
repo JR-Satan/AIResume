@@ -1,3 +1,9 @@
+/**
+ * 通用简历数据类型定义。
+ *
+ * 其中 3-4 大模型润色组补充了 AI 润色、质量评分、岗位结构诊断、字段级建议和
+ * TextGrad 可视化轨迹等类型，供页面、服务层和跨组接口共同使用。
+ */
 import type { Template } from "../types/template";
 export interface PersonalInfo {
   name: string;

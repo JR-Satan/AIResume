@@ -1,3 +1,10 @@
+/**
+ * 3-4 大模型润色组 PromptSet 配置。
+ *
+ * 本文件把系统提示词、单字段润色、全文润色、质量评分和提示词优化要求集中管理。
+ * 这样答辩时可以说明：3-4 组不是把提示词硬编码散落在页面里，而是把提示词作为
+ * 可版本化、可迭代优化的工程资产。
+ */
 import type { PromptSet } from '../types/promptOptimization';
 
 export const defaultPromptSet: PromptSet = {

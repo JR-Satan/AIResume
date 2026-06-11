@@ -1,4 +1,9 @@
-// 发送请求的worker
+/**
+ * 3-4 大模型润色组模型请求 worker。
+ *
+ * worker 负责在后台执行大模型请求、解析流式/非流式响应并返回给页面，避免评分、润色和
+ * 结构诊断阻塞主线程。请求默认使用 temperature: 0，保证同一份简历的结果尽量稳定。
+ */
 self.onmessage = async (event) => {
   const { taskId, messages, userApiKey, model, API_URL, requestOptions = {} } = event.data;
   const { timeoutMs, ...apiRequestOptions } = requestOptions as { timeoutMs?: number; [key: string]: unknown };
@@ -43,6 +48,7 @@ self.onmessage = async (event) => {
     return content.trim();
   };
   const parseNonStreamText = (rawText: string): string => {
+    // 兼容 OpenAI 格式接口的多种返回形态：标准 JSON、SSE 文本或直接返回的纯文本。
     const trimmed = rawText.trim();
     if (!trimmed) return '';
     try {

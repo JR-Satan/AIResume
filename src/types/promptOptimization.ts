@@ -1,3 +1,9 @@
+/**
+ * 3-4 大模型润色组提示词优化类型定义。
+ *
+ * 本文件描述 PromptSet、优化样例、评分结果和优化轨迹，用来支撑“提示词也是可优化变量”
+ * 的 TextGrad 方案。
+ */
 import type { ResumeContentSnapshot } from './resume';
 
 export type PromptOptimizationTask =
