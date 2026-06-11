@@ -46,7 +46,12 @@
       </div>
       <div class="avatar-label">
         <div class="ai-name">面试官</div>
-        <div class="ai-state">{{ aiStateLabel }}</div>
+        <div class="ai-state">
+          {{ aiStateLabel }}
+          <span v-if="state === 'thinking'" class="thinking-dots" aria-hidden="true">
+            <span class="dot" /><span class="dot" /><span class="dot" />
+          </span>
+        </div>
       </div>
     </div>
 
@@ -143,7 +148,8 @@ const aiStateClass = computed(() => {
   switch (props.state) {
     case 'greeting': return 'speaking';
     case 'in_question': return 'speaking';
-    case 'evaluating': return 'speaking';
+    case 'thinking': return 'thinking';
+    case 'evaluating': return 'thinking';
     default: return 'idle';
   }
 });
@@ -153,6 +159,7 @@ const aiStateLabel = computed(() => {
     case 'connecting': return '正在连接...';
     case 'greeting': return '正在打招呼';
     case 'in_question': return '正在提问 / 倾听';
+    case 'thinking': return '正在思考中';
     case 'evaluating': return '正在评分';
     default: return '空闲';
   }
@@ -237,6 +244,20 @@ const aiStateLabel = computed(() => {
 .ai-avatar.speaking .pulse-ring.delay {
   animation-delay: 1s;
 }
+/* 思考状态：头像换成更柔和的渐变 + 慢速呼吸光晕，区别于 speaking 的扩散波纹 */
+.ai-avatar.thinking {
+  background: linear-gradient(135deg, #a78bfa 0%, #6366f1 100%);
+  animation: thinking-glow 1.6s ease-in-out infinite;
+}
+.ai-avatar.thinking .pulse-ring,
+.ai-avatar.thinking .pulse-ring.delay {
+  animation: none;
+  opacity: 0;
+}
+@keyframes thinking-glow {
+  0%, 100% { box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3); }
+  50%      { box-shadow: 0 4px 28px rgba(99, 102, 241, 0.65); }
+}
 @keyframes ring-pulse {
   0% { transform: scale(1); opacity: 0.6; }
   100% { transform: scale(1.4); opacity: 0; }
@@ -245,6 +266,27 @@ const aiStateLabel = computed(() => {
 .avatar-label { margin-top: 12px; text-align: center; }
 .ai-name { font-size: 14px; font-weight: 600; color: #1e293b; }
 .ai-state { font-size: 12px; color: #64748b; margin-top: 2px; }
+
+/* 思考状态：在文字后面跟三个跳动的点，告诉用户「真的在算，没卡死」 */
+.thinking-dots {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+.thinking-dots .dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #6366f1;
+  animation: thinking-bounce 1.2s ease-in-out infinite;
+}
+.thinking-dots .dot:nth-child(2) { animation-delay: 0.15s; }
+.thinking-dots .dot:nth-child(3) { animation-delay: 0.3s; }
+@keyframes thinking-bounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40%           { transform: translateY(-4px); opacity: 1; }
+}
 
 /* 用户头像 + 波形 */
 .user-area {

@@ -62,6 +62,11 @@ export class BasicInterviewOrchestrator {
   private shouldKeepListening = false;
   private pendingStopResolve: (() => void) | null = null;
   private answerParts: string[] = [];
+  // 每个 result slot 的最新 interim 文本。Chrome 在静音超时 / 用户主动 stop 时
+  // 可能不补发对应 utterance 的 isFinal=true，导致这部分文本永远进不了 answerParts。
+  // 这里先存住，onend / 重启 / stopMic 时统一 flush 进去，避免长回答被截断成一两句。
+  private interimByIndex: Map<number, string> = new Map();
+  private restartTimer: number | null = null;
   private currentQuestionTurns: string[] = [];
   private currentQuestionFollowUpCount = 0;
   private currentQuestionAskedFocuses = new Set<string>();
@@ -149,6 +154,7 @@ export class BasicInterviewOrchestrator {
     if (this.recognitionActive) return;
 
     this.answerParts = [];
+    this.interimByIndex.clear();
     this.shouldKeepListening = true;
     this.recognitionActive = true;
 
@@ -164,19 +170,24 @@ export class BasicInterviewOrchestrator {
     if (!this.recognizer || !this.recognitionActive) return;
 
     this.shouldKeepListening = false;
+    this.clearPendingRestart();
     await new Promise<void>((resolve) => {
       this.pendingStopResolve = resolve;
       this.recognizer?.stop();
     });
 
     this.recognitionActive = false;
+    // 兜底：onend 时已经 flush 过；这里再 flush 一次防 Chromium 不补发 isFinal 的 utterance。
+    this.flushInterimToAnswer();
     await this.submitCurrentAnswer();
   }
 
   async stop(): Promise<void> {
     this.shouldKeepListening = false;
+    this.clearPendingRestart();
     this.pendingStopResolve?.();
     this.pendingStopResolve = null;
+    this.interimByIndex.clear();
 
     if (this.recognizer) {
       try {
@@ -201,6 +212,8 @@ export class BasicInterviewOrchestrator {
     this.recognitionActive = false;
     this.shouldKeepListening = false;
     this.pendingStopResolve = null;
+    this.interimByIndex.clear();
+    this.clearPendingRestart();
     this.resetCurrentQuestionProgress();
   }
 
@@ -226,18 +239,35 @@ export class BasicInterviewOrchestrator {
       for (let index = event.resultIndex; index < event.results.length; index += 1) {
         const result = event.results[index];
         const transcript = result[0]?.transcript?.trim();
-        if (!result.isFinal || !transcript) continue;
+        if (!transcript) continue;
         const cleaned = this.normalizeText(transcript);
-        if (cleaned) this.answerParts.push(cleaned);
+        if (!cleaned) continue;
+
+        if (result.isFinal) {
+          // 终态 → 落账，并清掉这个 slot 的 interim 缓存避免重复。
+          this.answerParts.push(cleaned);
+          this.interimByIndex.delete(index);
+        } else {
+          // 非终态 → 暂存最新 interim，等 isFinal 时挪进 answerParts；
+          // 如果 Chrome 不补发 isFinal（静音超时 / 主动 stop / 异常 onend），
+          // flushInterimToAnswer() 会兜底把这部分捞回去。
+          this.interimByIndex.set(index, cleaned);
+        }
       }
     };
 
     recognizer.onerror = (event) => {
-      this.emit('error', { message: this.mapRecognitionError(event.error || 'UNKNOWN_ERROR') });
+      const code = event.error || 'UNKNOWN_ERROR';
+      // 静音引发的 no-speech 和重启时的 aborted 是预期情况，让 onend 处理重启逻辑，不打扰用户。
+      if (code === 'no-speech' || code === 'aborted') return;
+      this.emit('error', { message: this.mapRecognitionError(code) });
     };
 
     recognizer.onend = () => {
       this.recognitionActive = false;
+      // 不管是用户主动 stop、静音超时、还是其它原因，先把这次会话里残留的 interim 文本落账。
+      // 否则在 Chrome 不补发 isFinal=true 的情况下，最后一句话会被直接丢掉。
+      this.flushInterimToAnswer();
 
       if (this.pendingStopResolve) {
         const resolve = this.pendingStopResolve;
@@ -247,16 +277,65 @@ export class BasicInterviewOrchestrator {
       }
 
       if (this.shouldKeepListening && this.state === 'in_question') {
-        try {
-          recognizer.start();
-          this.recognitionActive = true;
-        } catch {
-          this.emit('error', { message: '语音识别中断，请重新点击开始作答' });
-        }
+        this.scheduleRestart(recognizer);
       }
     };
 
     return recognizer;
+  }
+
+  /**
+   * 把所有 result slot 的最新 interim 文本落进 answerParts。
+   * 调用时机：onend 开头、stopMic 兜底、scheduleRestart 之前。
+   * 调用后清空 interimByIndex，避免重复累计。
+   */
+  private flushInterimToAnswer() {
+    if (this.interimByIndex.size === 0) return;
+    const ordered = Array.from(this.interimByIndex.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([, value]) => value)
+      .filter(Boolean);
+    for (const value of ordered) {
+      this.answerParts.push(value);
+    }
+    this.interimByIndex.clear();
+  }
+
+  /**
+   * 延迟重启识别。Chrome 在 onend 后立刻 start() 经常抛 InvalidStateError
+   * （上一个会话还没完全释放），所以隔 250ms 再启；首次失败再退避 500ms 重试一次。
+   * 两次都失败就明确告诉用户：把麦克风关掉再点开始作答。
+   */
+  private scheduleRestart(recognizer: VoiceRecognizer, attempt = 0) {
+    this.clearPendingRestart();
+    const delay = attempt === 0 ? 250 : 500;
+    this.restartTimer = window.setTimeout(() => {
+      this.restartTimer = null;
+      if (!this.shouldKeepListening || this.state !== 'in_question') return;
+      try {
+        recognizer.start();
+        this.recognitionActive = true;
+      } catch (error) {
+        if (attempt < 1) {
+          this.scheduleRestart(recognizer, attempt + 1);
+          return;
+        }
+        // 彻底失败：复位状态，让 UI 显示麦克风已关，并明确告知用户。
+        this.shouldKeepListening = false;
+        this.recognitionActive = false;
+        const detail = error instanceof Error ? error.message : String(error);
+        this.emit('error', {
+          message: `语音识别中断（${detail || '未知原因'}），请点击麦克风按钮重新作答`,
+        });
+      }
+    }, delay);
+  }
+
+  private clearPendingRestart() {
+    if (this.restartTimer !== null) {
+      window.clearTimeout(this.restartTimer);
+      this.restartTimer = null;
+    }
   }
 
   private async submitCurrentAnswer(): Promise<void> {
@@ -277,6 +356,9 @@ export class BasicInterviewOrchestrator {
 
     this.pushTranscript('user', answer);
     this.currentQuestionTurns.push(answer);
+    // 等大模型决定是否追问 / 跑评分前先切到 thinking 状态，
+    // 让 UI 上的 AI 头像变成「思考中」动画，避免长时间卡在「正在提问 / 倾听」让人以为系统死了。
+    this.setState('thinking');
 
     const combinedAnswer = this.composeCombinedAnswer();
     const followUpDecision = await this.buildFollowUpDecision(question, combinedAnswer, answer);

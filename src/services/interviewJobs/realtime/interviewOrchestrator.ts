@@ -26,6 +26,7 @@ export type InterviewState =
   | 'connecting'     // 连接中
   | 'greeting'       // AI 正在打招呼
   | 'in_question'    // AI 问了某道题,等用户回答
+  | 'thinking'       // AI 在等大模型返回（追问决策 / 评分前的等待）
   | 'evaluating'     // AI 正在调 record_answer
   | 'completed'      // AI 调了 end_interview
   | 'error';         // 出错
