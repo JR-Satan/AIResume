@@ -1,3 +1,8 @@
+/**
+ * 3-3 用户模板管理组
+ * 编写者：3-3 小组（蔡世强、侯锦瑞、徐崇耀、张楚唯、潘家杰、王杰）
+ * 功能：封装用户登录态 Store，负责注册、登录、扫码登录、资料维护和退出登录等账号状态管理。
+ */
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import * as authService from '../services/authService';

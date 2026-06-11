@@ -1,3 +1,8 @@
+<!--
+  3-3 用户模板管理组
+  编写者：3-3 小组（蔡世强、侯锦瑞、徐崇耀、张楚唯、潘家杰、王杰）
+  功能：模板市场页面，负责读取模板配置、展示模板卡片并切换当前简历模板。
+-->
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { message } from 'ant-design-vue';

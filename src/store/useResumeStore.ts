@@ -59,6 +59,11 @@ const resolveFieldPath = (root: Record<string, unknown>, fieldPath: string) => {
   };
 };
 
+/**
+ * 3-3 用户模板管理组
+ * 编写者：3-3 小组（蔡世强、侯锦瑞、徐崇耀、张楚唯、潘家杰、王杰）
+ * 功能：解析历史版本归属用户，保证简历历史记录按登录用户名隔离展示和保存。
+ */
 const resolveHistoryUsername = (username?: string | null): string | null => {
   const normalizedUsername = username?.trim();
   if (normalizedUsername) return normalizedUsername;
@@ -151,7 +156,11 @@ export const useResumeStore = defineStore('resume', {
       this.saveToLocalStorage(); // 更新 localStorage
       message.success('数据已清空');
     },
-    // 自动填充数据
+    /**
+     * 3-3 用户模板管理组扩展点
+     * 编写者：3-3 小组（蔡世强、侯锦瑞、徐崇耀、张楚唯、潘家杰、王杰）
+     * 功能：在预览填充覆盖当前简历前记录历史版本，形成可回退的关键提交点。
+     */
     async autoFillData(options: { saveHistory?: boolean; username?: string | null } = {}) {
       try {
         const response = await fetch('/resumeData.json');
@@ -168,7 +177,11 @@ export const useResumeStore = defineStore('resume', {
       }
     },
 
-    // 保存当前数据为历史版本快照
+    /**
+     * 3-3 用户模板管理组
+     * 编写者：3-3 小组（蔡世强、侯锦瑞、徐崇耀、张楚唯、潘家杰、王杰）
+     * 功能：保存当前简历为历史版本快照，并按当前用户和模板 ID 写入本地历史存档。
+     */
     saveHistorySnapshot(username?: string | null): HistoryVersion | null {
       if (this.isHistoryMode) return null;
 
@@ -196,7 +209,11 @@ export const useResumeStore = defineStore('resume', {
       return saveHistory(snapshot, templateId, historyUsername);
     },
 
-    // 进入历史版本预览
+    /**
+     * 3-3 用户模板管理组
+     * 编写者：3-3 小组（蔡世强、侯锦瑞、徐崇耀、张楚唯、潘家杰、王杰）
+     * 功能：进入历史版本只读预览模式，临时加载历史快照并备份当前编辑状态。
+     */
     enterHistoryPreview(snapshot: ResumeSnapshot) {
       // 先备份当前状态到专用 localStorage key
       const backup = JSON.stringify(this.$state);
@@ -211,7 +228,11 @@ export const useResumeStore = defineStore('resume', {
       };
     },
 
-    // 退出历史版本预览，恢复原始状态
+    /**
+     * 3-3 用户模板管理组
+     * 编写者：3-3 小组（蔡世强、侯锦瑞、徐崇耀、张楚唯、潘家杰、王杰）
+     * 功能：退出历史版本预览并恢复进入预览前的当前简历编辑状态。
+     */
     exitHistoryPreview() {
       const backupStr = localStorage.getItem('resumeData_history_backup');
       if (backupStr) {
@@ -396,7 +417,11 @@ export const useResumeStore = defineStore('resume', {
       list.push(newEntry);
       this.saveToLocalStorage();
     },
-    // 简历设置内容
+    /**
+     * 3-3 用户模板管理组
+     * 编写者：3-3 小组（蔡世强、侯锦瑞、徐崇耀、张楚唯、潘家杰、王杰）
+     * 功能：更新并持久化简历模板、主题、间距和导出 DPI 等模板/下载相关设置。
+     */
     updateResumeSetting(updatedSetting: Partial<ResumeSetting>) {
       this.resumeSetting = { ...this.resumeSetting, ...updatedSetting };
       this.saveToLocalStorage();
