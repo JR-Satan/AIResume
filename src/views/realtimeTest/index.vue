@@ -1,3 +1,8 @@
+<!--
+  3-5 模拟面试及职位推送组
+  本页面负责语音面试准备、会话状态、业务编排、结果展示和历史记录串联。
+-->
+
 <template>
   <div class="voice-interview-page">
     <a-card :bordered="false" class="page-card">

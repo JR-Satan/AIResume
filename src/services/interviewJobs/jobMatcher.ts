@@ -1,3 +1,8 @@
+/**
+ * 3-5 模拟面试及职位推送组
+ * 本文件负责根据简历特征进行本地岗位匹配与大模型岗位推荐。
+ */
+
 import type { JobProfile, JobRecommendation, ResumeFeatures } from '@/types/interviewJobs';
 import { JOB_DATABASE } from './jobDatabase';
 import { callInterviewLlmForJson } from './llmClient';

@@ -1,3 +1,8 @@
+/**
+ * 3-5 模拟面试及职位推送组
+ * 本文件负责面试题生成、回答有效性检查、单题评分、整场评分及本地兜底。
+ */
+
 import type {
   InterviewDimension,
   InterviewEvaluation,

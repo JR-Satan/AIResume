@@ -1,3 +1,8 @@
+/**
+ * 3-5 模拟面试及职位推送组
+ * 本文件封装浏览器语音识别、语音播报和语音能力检测。
+ */
+
 import type {
   VoiceInterviewCapability,
   VoiceRecognitionOptions,

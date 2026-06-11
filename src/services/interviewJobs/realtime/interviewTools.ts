@@ -1,4 +1,9 @@
 /**
+ * 3-5 模拟面试及职位推送组
+ * 本文件定义实时语音面试用于记录答题和结束面试的函数调用工具。
+ */
+
+/**
  * 面试 Function Call 工具定义
  *
  * 智谱 GLM-Realtime 的 tools 字段（session.update 时传入），

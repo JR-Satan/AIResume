@@ -1,3 +1,8 @@
+/**
+ * 3-5 模拟面试及职位推送组
+ * 本文件串联基础语音面试的出题、识别、追问、评分和结果生成流程。
+ */
+
 import {
   createVoiceRecognizer,
   getVoiceInterviewCapability,

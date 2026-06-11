@@ -1,3 +1,8 @@
+<!--
+  3-5 模拟面试及职位推送组
+  本组件负责展示候选人画像、目标岗位、环境检查和麦克风测试。
+-->
+
 <template>
   <div class="interview-setup">
     <div class="welcome-banner">

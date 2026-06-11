@@ -1,3 +1,8 @@
+/**
+ * 3-5 模拟面试及职位推送组
+ * 本文件负责从当前简历快照中提取岗位推荐与模拟面试所需的结构化特征。
+ */
+
 import type { ResumeContentSnapshot } from '@/types/resume';
 import type { ResumeFeatures } from '@/types/interviewJobs';
 import { callInterviewLlmForJson } from './llmClient';

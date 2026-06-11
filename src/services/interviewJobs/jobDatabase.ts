@@ -1,3 +1,8 @@
+/**
+ * 3-5 模拟面试及职位推送组
+ * 本文件维护岗位推荐与模拟面试使用的本地候选岗位数据。
+ */
+
 import type { JobProfile } from '@/types/interviewJobs';
 
 export const JOB_DATABASE: JobProfile[] = [

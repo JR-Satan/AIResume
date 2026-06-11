@@ -1,4 +1,9 @@
 /**
+ * 3-5 模拟面试及职位推送组
+ * 本文件定义实时语音会话配置、客户端事件和服务端事件的数据结构。
+ */
+
+/**
  * 智谱 GLM-Realtime 协议类型定义
  * 官方文档：https://docs.bigmodel.cn/cn/guide/models/sound-and-video/glm-realtime
  *

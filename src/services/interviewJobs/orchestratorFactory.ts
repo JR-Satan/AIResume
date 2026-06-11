@@ -1,3 +1,8 @@
+/**
+ * 3-5 模拟面试及职位推送组
+ * 本文件负责创建统一接口的语音面试业务编排器。
+ */
+
 import { BasicInterviewOrchestrator } from './basicVoice/basicInterviewOrchestrator';
 import type { InterviewContext } from './realtime';
 import type { OrchestratorEventMap } from './realtime';

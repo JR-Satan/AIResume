@@ -1,3 +1,8 @@
+/**
+ * 3-5 模拟面试及职位推送组
+ * 本文件定义岗位推荐、面试题、评分结果和语音识别相关的公共类型。
+ */
+
 import type { ResumeContentSnapshot } from './resume';
 
 export type InterviewDimension =

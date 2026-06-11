@@ -1,3 +1,8 @@
+/**
+ * 3-5 模拟面试及职位推送组-V1.0
+ * 本文件封装岗位推荐与模拟面试场景中的通用大模型 JSON 请求。
+ */
+
 import { sanitizeModelName, useSettingsStore } from '@/store';
 import type { LlmJsonRequest, LlmJsonResponse } from '@/types/interviewJobs';
 import { normalizeChatCompletionsUrl } from '@/utils/apiUrl';

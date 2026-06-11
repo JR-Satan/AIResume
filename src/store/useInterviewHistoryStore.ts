@@ -1,4 +1,9 @@
 /**
+ * 3-5 模拟面试及职位推送组
+ * 本文件负责按登录用户保存、查询和管理语音面试历史记录。
+ */
+
+/**
  * 面试历史记录 Store
  *
  * 用 Pinia + pinia-plugin-persistedstate 存到 localStorage,

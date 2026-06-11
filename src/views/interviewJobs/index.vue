@@ -1,3 +1,8 @@
+<!--
+  3-5 模拟面试及职位推送组
+  本页面负责串联简历特征提取、岗位推荐、文本面试、综合评分和雷达图展示。
+-->
+
 <template>
   <main class="interview-page">
     <section class="page-header">
