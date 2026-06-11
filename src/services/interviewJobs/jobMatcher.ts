@@ -30,14 +30,14 @@ export async function recommendJobsWithLlm(
 ): Promise<JobRecommendation[]> {
   const fallback = recommendJobs(features, jobs, topK);
   const response = await callInterviewLlmForJson<JobRecommendationPayload>({
-    systemPrompt: 'You are a Chinese career consultant. Rank suitable jobs based on resume features and explain the match.',
+    systemPrompt: '你是一位中文职业顾问。请根据简历特征对合适的岗位进行排序，并说明匹配原因。',
     userPrompt: JSON.stringify({
       instruction: [
-        'Rank candidate jobs for the resume.',
-        'Return JSON only.',
-        'Only choose jobId values from the provided jobs.',
-        'Fields: recommendations/jobId/score/matchedKeywords/missingKeywords/reason.',
-        'Score must be an integer from 0 to 100. Reasons should be concise Chinese sentences.',
+        '根据简历对候选岗位进行排序。',
+        '只返回 JSON。',
+        '只能从提供的岗位中选择 jobId。',
+        '字段包括：recommendations/jobId/score/matchedKeywords/missingKeywords/reason。',
+        'score 必须是 0 到 100 的整数。reason 应使用简洁的中文语句。',
       ],
       features,
       jobs,

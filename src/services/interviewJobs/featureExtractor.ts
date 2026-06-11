@@ -82,13 +82,13 @@ export async function extractResumeFeaturesWithLlm(
 ): Promise<ResumeFeatures> {
   const fallback = extractResumeFeatures(snapshot);
   const response = await callInterviewLlmForJson<ResumeFeaturesPayload>({
-    systemPrompt: 'You are a Chinese resume analysis expert. Extract structured resume features for job recommendation.',
+    systemPrompt: '你是一位中文简历分析专家。请提取结构化的简历特征，用于岗位推荐。',
     userPrompt: JSON.stringify({
       instruction: [
-        'Read the resume snapshot and extract features.',
-        'Return JSON only.',
-        'Fields: targetPosition, educationLevel, majors, skills, projectKeywords, workKeywords, experienceYears, honors.',
-        'Use concise Chinese labels when possible. Do not invent experience that is not supported by the resume.',
+        '阅读简历快照并提取特征。',
+        '只返回 JSON。',
+        '字段包括：targetPosition、educationLevel、majors、skills、projectKeywords、workKeywords、experienceYears、honors。',
+        '尽可能使用简洁的中文标签。不得虚构简历中没有依据的经历。',
       ],
       resumeText: fallback.rawText,
       snapshot,
