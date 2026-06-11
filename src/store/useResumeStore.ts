@@ -60,8 +60,7 @@ const resolveFieldPath = (root: Record<string, unknown>, fieldPath: string) => {
 };
 
 /**
- * 3-3 用户模板管理组
- * 编写者：3-3 小组（蔡世强、侯锦瑞、徐崇耀、张楚唯、潘家杰、王杰）
+ * 编写者：侯锦瑞
  * 功能：解析历史版本归属用户，保证简历历史记录按登录用户名隔离展示和保存。
  */
 const resolveHistoryUsername = (username?: string | null): string | null => {
@@ -157,8 +156,7 @@ export const useResumeStore = defineStore('resume', {
       message.success('数据已清空');
     },
     /**
-     * 3-3 用户模板管理组扩展点
-     * 编写者：3-3 小组（蔡世强、侯锦瑞、徐崇耀、张楚唯、潘家杰、王杰）
+     * 编写者：侯锦瑞
      * 功能：在预览填充覆盖当前简历前记录历史版本，形成可回退的关键提交点。
      */
     async autoFillData(options: { saveHistory?: boolean; username?: string | null } = {}) {
@@ -178,8 +176,7 @@ export const useResumeStore = defineStore('resume', {
     },
 
     /**
-     * 3-3 用户模板管理组
-     * 编写者：3-3 小组（蔡世强、侯锦瑞、徐崇耀、张楚唯、潘家杰、王杰）
+     * 编写者：侯锦瑞
      * 功能：保存当前简历为历史版本快照，并按当前用户和模板 ID 写入本地历史存档。
      */
     saveHistorySnapshot(username?: string | null): HistoryVersion | null {
@@ -210,8 +207,7 @@ export const useResumeStore = defineStore('resume', {
     },
 
     /**
-     * 3-3 用户模板管理组
-     * 编写者：3-3 小组（蔡世强、侯锦瑞、徐崇耀、张楚唯、潘家杰、王杰）
+     * 编写者：侯锦瑞
      * 功能：进入历史版本只读预览模式，临时加载历史快照并备份当前编辑状态。
      */
     enterHistoryPreview(snapshot: ResumeSnapshot) {
@@ -229,8 +225,7 @@ export const useResumeStore = defineStore('resume', {
     },
 
     /**
-     * 3-3 用户模板管理组
-     * 编写者：3-3 小组（蔡世强、侯锦瑞、徐崇耀、张楚唯、潘家杰、王杰）
+     * 编写者：侯锦瑞
      * 功能：退出历史版本预览并恢复进入预览前的当前简历编辑状态。
      */
     exitHistoryPreview() {
@@ -418,8 +413,7 @@ export const useResumeStore = defineStore('resume', {
       this.saveToLocalStorage();
     },
     /**
-     * 3-3 用户模板管理组
-     * 编写者：3-3 小组（蔡世强、侯锦瑞、徐崇耀、张楚唯、潘家杰、王杰）
+     * 编写者：侯锦瑞、王杰
      * 功能：更新并持久化简历模板、主题、间距和导出 DPI 等模板/下载相关设置。
      */
     updateResumeSetting(updatedSetting: Partial<ResumeSetting>) {
